@@ -67,4 +67,3 @@ robot_control/
 ## License
 
 MIT License. See [LICENSE](LICENSE) for details.
-```
