@@ -1,0 +1,6 @@
+# smbus
+numpy
+websockets
+aiohttp
+opencv-python
+opencv-contrib-python

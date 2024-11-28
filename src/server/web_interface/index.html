@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Robot Control Interface</title>
+    <link rel="stylesheet" href="static/css/main.css">
+    <link rel="stylesheet" href="static/css/controls.css">
+    <link rel="stylesheet" href="static/css/grid.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Robot Control Interface</h1>
+            <div class="status-bar">
+                <span class="connection-status">Disconnected</span>
+                <span class="robot-mode">Mode: Manual</span>
+            </div>
+        </header>
+
+        <main>
+            <div class="grid-section">
+                <canvas id="gridCanvas"></canvas>
+                <div class="grid-controls">
+                    <button id="setTargetBtn">Set Target</button>
+                    <button id="clearTargetBtn">Clear Target</button>
+                </div>
+            </div>
+
+            <div class="control-section">
+                <div class="mode-selector">
+                    <button id="manualModeBtn" class="active">Manual Mode</button>
+                    <button id="autoModeBtn">Automatic Mode</button>
+                </div>
+
+                <div class="manual-controls">
+                    <div class="speed-controls">
+                        <label>Speed: <span id="speedValue">50</span>%</label>
+                        <input type="range" id="speedSlider" min="0" max="100" value="50">
+                    </div>
+                    <div class="direction-controls">
+                        <button id="forwardBtn" class="arrow-btn up">↑</button>
+                        <button id="leftBtn" class="arrow-btn left">←</button>
+                        <button id="stopBtn" class="stop-btn">⬤</button>
+                        <button id="rightBtn" class="arrow-btn right">→</button>
+                        <button id="backBtn" class="arrow-btn down">↓</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="video-section">
+                <div class="video-container">
+                    <img id="videoFeed" alt="Robot Camera Feed">
+                </div>
+                <div class="position-info">
+                    <div>X: <span id="posX">0.00</span>m</div>
+                    <div>Y: <span id="posY">0.00</span>m</div>
+                    <div>θ: <span id="posTheta">0.00</span>°</div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="static/js/websocket.js"></script>
+    <script src="static/js/robotState.js"></script>
+    <script src="static/js/controls.js"></script>
+    <script src="static/js/gridView.js"></script>
+    <script src="static/js/videoFeed.js"></script>
+    <script src="static/js/main.js"></script>
+</body>
+</html>
