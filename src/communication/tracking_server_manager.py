@@ -3,7 +3,7 @@ import aiohttp
 import asyncio
 from typing import Dict, Callable, Optional, Tuple
 from models.message import Message, MessageType
-from models.tracking_server import TeamStatus, MarkerStatus, RaceStatus
+from models.race import TeamStatus, MarkerStatus, RaceStatus
 from config import TrackingServerConfig
 from controllers.race_controller import RaceController
 
@@ -79,14 +79,6 @@ class TrackingServerManager:
                     data = await response.text()
                     data = json.loads(data)
                     self.race_controller.update_status(data)
-                    self.race_status.status = data.status
-                    self.race_status.elapsed = data.elapsed
-                    for position in data.positions:
-                        team_id = position["team"]
-                        self.race_status.positions[team_id] = TeamStatus(position)
-                    for marker in data.markers:
-                        id = marker["id"]
-                        self.race_status.markers[id] = MarkerStatus(marker)
                 else:
                     print("ERROR - Could not receive race status from tracking server")
         except:
