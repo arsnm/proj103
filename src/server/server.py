@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from enum import Enum
 import pathlib
 from aiohttp import web
-import os
+from websockets.legacy.server import WebSocketServerProtocol, serve
 
 
 class ClientType(Enum):
@@ -16,13 +16,13 @@ class ClientType(Enum):
 
 @dataclass
 class Client:
-    websocket: websockets.WebSocketServerProtocol
+    websocket: WebSocketServerProtocol
     client_type: ClientType
 
 
 class CombinedServer:
     def __init__(
-        self, host: str = "localhost", ws_port: int = 8765, http_port: int = 8000
+        self, host: str = "0.0.0.0", ws_port: int = 8765, http_port: int = 8000
     ):
         self.host = host
         self.ws_port = ws_port
@@ -50,7 +50,7 @@ class CombinedServer:
         """Serve index.html"""
         return web.FileResponse(self.web_dir / "index.html")
 
-    async def register_client(self, websocket: websockets.WebSocketServerProtocol):
+    async def register_client(self, websocket: WebSocketServerProtocol, path: str):
         """Register a new WebSocket client connection"""
         try:
             message = await websocket.recv()
@@ -113,9 +113,7 @@ class CombinedServer:
         for interface_id in disconnected:
             await self.unregister_client(interface_id)
 
-    async def handle_client(
-        self, client_id: str, websocket: websockets.WebSocketServerProtocol
-    ):
+    async def handle_client(self, client_id: str, websocket):
         """Handle messages from a client"""
         try:
             async for message in websocket:
@@ -136,10 +134,8 @@ class CombinedServer:
 
     async def start(self):
         """Start both WebSocket and HTTP servers"""
-        # Start WebSocket server
-        websocket_server = await websockets.serve(
-            self.register_client, self.host, self.ws_port
-        )
+        # Update WebSocket server initialization
+        websocket_server = await serve(self.register_client, self.host, self.ws_port)
         print(f"WebSocket server running on ws://{self.host}:{self.ws_port}")
 
         # Start HTTP server

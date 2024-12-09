@@ -1,4 +1,3 @@
-// static/js/videoFeed.js
 class VideoFeed {
     constructor(imageElement) {
         this.imageElement = imageElement;

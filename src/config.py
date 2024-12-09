@@ -31,16 +31,36 @@ class ControlConfig:
     # I2C Configuration
     I2C_BUS: int = 8
 
+    # Grid Configuration
+    GRID_SIZE_X: float = 300  # centimeters
+    GRID_SIZE_Y: float = 350  # centimeters
+    CASE_SIZE: float = 50  # centimeters
+
+
+@dataclass
+class TrackingServerConfig:
+    API_RESPONSE = {
+        200: "200 - Request fully treated",
+        400: "400 - Error in request",
+        401: "401 - Authentification error",
+        404: "404 - API command not recognized",
+        500: "500 - Internal error of the server",
+        503: "503 - Valid request, but race not started",
+    }
+    TEAM_ID = 15
+
 
 @dataclass
 class NetworkConfig:
     WEBSOCKET_URI: str = "ws://localhost:8765"
     MESSAGE_TIMEOUT: float = 0.1
     RECONNECT_DELAY: float = 1.0
-    TRACKING_SERVER: str = "http://proj103.enst.fr/api"
+    TRACKING_SERVER_URL: str = "http://proj103.enst.fr/api"
+    TRACKING_RATE: int = 1
+    WEBSOCKET_RATE: int = 30
+    TRACKING_SERVER_CONFIG = TrackingServerConfig()
 
 
 @dataclass
 class RobotConfig:
-    GRID_SIZE: float = 2.0  # meters
     TEST_MODE: bool = False

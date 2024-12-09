@@ -6,6 +6,7 @@ from typing import Dict, Callable, Optional
 from models.message import Message, MessageType
 from models.position import Position
 from .message_handler import MessageHandler
+from websockets.asyncio.client import ClientConnection
 import json
 
 
@@ -14,12 +15,18 @@ class WebSocketManager:
 
     def __init__(self, uri: str):
         self.uri = uri
-        self.websocket: Optional[websockets.WebSocketClientProtocol] = None
+        self.websocket: Optional[ClientConnection]
         self.running = True
         self.message_handlers: Dict[MessageType, Callable] = {}
         self.message_queue = asyncio.Queue()
         self.connected = False
         self.message_handler = MessageHandler()
+
+    def initialize_connection(self):
+        """Initialize WebSocket connection"""
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(self.connect())
 
     async def connect(self):
         """Establish WebSocket connection with reconnection logic"""
@@ -51,7 +58,7 @@ class WebSocketManager:
         while self.running and self.websocket:
             try:
                 message = await self.websocket.recv()
-                await self.process_message(message)
+                await self.process_message(str(message))
             except websockets.exceptions.ConnectionClosed:
                 break
             except Exception as e:
@@ -93,6 +100,7 @@ class WebSocketManager:
 
         message = Message(type=MessageType.VIDEO_FRAME, data={"frame": frame_data})
         self.message_queue.put_nowait(message.to_json())
+        print("[WEBSOCKET] - Added video frame to message queue.")
 
     def register_handler(self, msg_type: MessageType, handler: Callable):
         self.message_handler.register(msg_type, handler)

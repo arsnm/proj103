@@ -1,17 +1,16 @@
-// static/js/main.js
 document.addEventListener('DOMContentLoaded', () => {
     // Initialize WebSocket connection
     const wsConnection = new WebSocketConnection('ws://localhost:8765');
-    
+
     // Initialize robot state
     const robotState = new RobotState();
-    
+
     // Initialize components
     const gridView = new GridView(
         document.getElementById('gridCanvas'),
         robotState
     );
-    
+
     const videoFeed = new VideoFeed(
         document.getElementById('videoFeed')
     );
@@ -28,6 +27,10 @@ document.addEventListener('DOMContentLoaded', () => {
         videoFeed.updateFrame(data.frame);
     });
     
+    wsConnection.on('race_status', (data) => {
+        raceState.updateStatus(data);
+    })
+
     function updatePositionDisplay(pose) {
         document.getElementById('posX').textContent = pose.x.toFixed(2);
         document.getElementById('posY').textContent = pose.y.toFixed(2);

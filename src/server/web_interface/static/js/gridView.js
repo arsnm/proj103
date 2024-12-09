@@ -1,4 +1,3 @@
-// static/js/gridView.js
 class GridView {
     constructor(canvas, robotState) {
         this.canvas = canvas;

@@ -1,4 +1,3 @@
-// static/js/websocket.js
 class WebSocketConnection {
     constructor(url) {
         this.url = url;

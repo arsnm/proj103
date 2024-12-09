@@ -8,16 +8,27 @@
 - Flag visualization
 - Real-time updates
 
+
 ### Control Panel
 - Mode selection (Manual/Automatic)
 - Manual control interface
 - Speed control
 - Status display
 
+
 ### Video Feed
 - Real-time camera feed
 - Position overlay
 - Flag detection visualization
+
+
+## Race status
+
+- Select team id
+- Race status
+- Grid informations (whole size, case size)
+- Position of teams in grid
+- Detected markers
 
 
 ## JavaScript Architecture

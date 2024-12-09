@@ -3,7 +3,6 @@
 
 A complete robot control system with vision-based localization, autonomous navigation, and web interface control.
 
-![System Overview](documentation/images/architecture.png)
 
 ## Features
 
@@ -52,7 +51,7 @@ python robot_control/main.py
 ## Project Structure
 
 ```
-robot_control/
+src/
 ├── main.py              # Main robot control system
 ├── config.py            # Configuration parameters
 ├── controllers/         # Control system components
@@ -64,6 +63,8 @@ robot_control/
 └── library_motor/       # Motor controller library
 ```
 
+
 ## License
 
 MIT License. See [LICENSE](LICENSE) for details.
+

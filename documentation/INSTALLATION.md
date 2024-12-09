@@ -20,6 +20,7 @@ This guide will help you set up the robot control system on your hardware.
 - Web browser (Chrome/Firefox recommended)
 
 
+
 ## Step-by-Step Installation
 
 1. **System Setup**
@@ -45,8 +46,8 @@ sudo raspi-config
 
 ```bash
 # Create virtual environment
-python -m venv venv
-source venv/bin/activate
+python -m venv .venv
+source .venv/bin/activate
 
 # Install dependencies
 pip install -r requirements.txt
@@ -56,7 +57,7 @@ pip install -r requirements.txt
 
 ```bash
 # Run calibration script
-python robot_control/vision/camera_calibration.py
+python src/vision/camera_calibration.py
 ```
 
 4. **ArUco Marker Setup**
@@ -68,23 +69,24 @@ python robot_control/vision/camera_calibration.py
 
 ```bash
 # Start WebSocket/HTTP server
-python server/server.py
+python src/server/server.py
 ```
 
 6. **Robot Control System**
 
 ```bash
 # Start robot control
-python robot_control/main.py
+python src/main.py
 ```
+
 
 
 ## Configuration
 
 Key configuration files:
-- `config.py`: System parameters
-- `vision/aruco_detector.py`: Marker configurations
-- `controllers/position_controller.py`: Control parameters
+- `src/config.py`: System parameters
+- `src/vision/aruco_detector.py`: Marker configurations
+- `src/controllers/position_controller.py`: Control parameters
 
 
 ## Troubleshooting
@@ -97,8 +99,6 @@ DEBUG = True
 TEST_MODE = True  # For testing without hardware
 ```
 
-
-
 ## Updates
 
 Keep your system updated:
@@ -107,12 +107,9 @@ git pull origin main
 pip install -r requirements.txt --upgrade
 ```
 
-
-
 ## Support
 
 For issues and questions:
 - Create an issue on GitLab
 - Check existing documentation
 - Contact system administrators
-

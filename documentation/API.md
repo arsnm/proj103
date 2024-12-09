@@ -16,6 +16,7 @@ All messages follow the JSON format:
 }
 ```
 
+
 ## Message Types
 
 ### Robot → Server Messages
@@ -47,6 +48,8 @@ All messages follow the JSON format:
     }
 }
 ```
+
+
 
 ### Server → Robot Messages
 
@@ -83,6 +86,8 @@ All messages follow the JSON format:
 }
 ```
 
+
+
 ## Error Handling
 
 Error messages follow the format:
@@ -95,3 +100,5 @@ Error messages follow the format:
     }
 }
 ```
+
+

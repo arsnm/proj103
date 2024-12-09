@@ -1,4 +1,3 @@
-// static/js/controls.js
 class RobotControls {
     constructor(websocket) {
         this.websocket = websocket;

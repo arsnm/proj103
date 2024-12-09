@@ -4,7 +4,6 @@
 
 The robot control system is built on a multi-layered architecture with distinct components for vision, control, communication, and user interface.
 
-![Architecture Diagram](images/architecture.png)
 
 
 ## Core Components
@@ -79,3 +78,4 @@ graph TD
 - Communication Timeouts
 - Motor Control Errors
 - Position Tracking Errors
+

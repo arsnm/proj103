@@ -7,6 +7,13 @@
 - Manages client state
 - Provides HTTP server for web interface
 
+
+## Communication with Tracking Server
+
+- Robot send its latest estimated position to the server
+- Update the `RaceController` status with the informations received from the server
+- Robot send *new* detected markers to the server
+
 ## Security Considerations
 
 - Single robot connection
@@ -14,9 +21,11 @@
 - Connection state tracking
 - Message validation
 
+
 ## Performance
 
 - Video compression
 - Message queuing
 - Automatic reconnection
 - Error recovery
+

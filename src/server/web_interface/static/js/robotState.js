@@ -1,4 +1,3 @@
-// static/js/robotState.js
 class RobotState {
     constructor() {
         this.position = { x: 0, y: 0, theta: 0, confidence: 0 };

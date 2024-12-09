@@ -1,11 +1,14 @@
 import time
 import signal
+import asyncio
 from config import VisionConfig, ControlConfig, NetworkConfig, RobotConfig
 from vision.camera import CameraManager
 from vision.aruco_detector import ArucoDetector
 from controllers.motor_controller import MotorController
 from controllers.position_controller import PositionController
+from controllers.race_controller import RaceController
 from communication.websocket_manager import WebSocketManager
+from communication.tracking_server_manager import TrackingServerManager
 from utils.threading_utils import ThreadController
 from models.position import Position
 from models.robot_mode import RobotMode
@@ -29,7 +32,11 @@ class RobotSystem:
             config_dict["control"], self.test_mode
         )
         self.position_controller = PositionController(config_dict["control"])
-        self.ws_manager = WebSocketManager(config_dict["network"])
+        self.race_controller = RaceController()
+        self.ws_manager = WebSocketManager(config_dict["network"].WEBSOCKET_URI)
+        self.tracking_server_manager = TrackingServerManager(
+            config_dict["network"].TRACKING_SERVER_URL, self.race_controller
+        )
 
         # Setup WebSocket callbacks
         self.setup_websocket_handlers()
@@ -100,28 +107,34 @@ class RobotSystem:
         )
 
         self.thread_controller.add_thread(
-            "websocket", self.websocket_thread, 30  # WebSocket update rate
+            "websocket", self.websocket_thread, self.config["network"].WEBSOCKET_RATE
+        )
+
+        self.thread_controller.add_thread(
+            "tracking_server",
+            self.tracking_server_thread,
+            self.config["network"].TRACKING_RATE,
         )
 
     def vision_thread(self):
         """Process camera feed and estimate position"""
         ret, frame = self.camera.read_frame()
         if ret:
-            # Get robot pose
             pose = self.aruco_detector.estimate_robot_pose(frame)
             if pose:
-                # Update position controller
+                print("[VISION] - Updating robot position.")
                 self.position_controller.update_position(pose)
-                # Send status update
+                visible_flags = self.aruco_detector.get_visible_flags(frame)
                 self.ws_manager.send_robot_status(
                     {
                         "pose": pose.__dict__,
                         "mode": self.current_mode.value,
-                        "visible_flags": self.aruco_detector.get_visible_flags(frame),
+                        "visible_markers": self.race_controller.new_flags(
+                            visible_flags
+                        ),
                     }
                 )
 
-            # Send video frame
             self.ws_manager.send_video_frame(frame)
 
     def position_control_thread(self):
@@ -141,7 +154,17 @@ class RobotSystem:
 
     def websocket_thread(self):
         """Handle websocket communication"""
-        self.ws_manager.process_messages()
+        if not self.ws_manager.connected:
+            self.ws_manager.initialize_connection()
+
+    def tracking_server_thread(self):
+        """Handle communication to the tracking server"""
+        self.tracking_server_manager.connect()
+        asyncio.run(
+            self.tracking_server_manager.update_position(
+                self.position_controller.get_current_coord("cm")
+            )
+        )
 
     def start(self):
         """Start the robot system"""
