@@ -4,7 +4,7 @@ from typing import Optional, List, Tuple, Dict
 import time
 from dataclasses import dataclass
 from enum import Enum
-from models.position import Position
+from src.models.position import Position
 import sys
 
 
