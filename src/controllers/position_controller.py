@@ -4,6 +4,8 @@ import numpy as np
 from dataclasses import dataclass
 from models.position import Position
 from config import ControlConfig
+from utils.conversion_utils import match_coord_to_case, match_case_to_coord
+from controllers.odometry_controller import OdometryController
 
 
 @dataclass
@@ -27,7 +29,7 @@ class PositionController:
         self.current_pose: Optional[Position] = None
         self.target_pose = Position(
             x=0.0, y=0.0, theta=0.0, camera_angle=0.0, confidence=1.0
-        )  # Default target at origin
+        )
         self.last_control_time = time.time()
 
         # PID control states
@@ -35,71 +37,26 @@ class PositionController:
         self.angular_integral = 0.0
         self.last_error: Optional[PositionError] = None
 
+        # Add odometry tracker
+        self.odometry = OdometryController(config)
+
         # Position tracking
         self.last_position_update = 0.0
         self.position_timeout = 0.5  # seconds
 
         # Control parameters
-        self.max_linear_velocity = 0.5  # m/s
-        self.max_angular_velocity = 1.0  # rad/s
+        self.max_linear_velocity = config.MAX_LINEAR_SPEED  # cm/s
+        self.max_angular_velocity = config.MAX_ANGULAR_SPEED  # rad/s
         self.heading_threshold = 0.1  # radians
-        self.position_threshold = 0.05  # meters
-        self.min_confidence = 0.3  # Minimum confidence to consider position valid
+        self.position_threshold = 5.0  # cm
+        self.min_confidence = 0.3
 
-        # Information about the position "space" i.e. grid
-        self.grid_size_x = config.GRID_SIZE_X  # in cm
-        self.grid_size_y = config.GRID_SIZE_Y
-        self.case_size = config.CASE_SIZE
+        # Motor controller reference
+        self.motor_controller = None
 
-    def match_coord_to_case(self, position):
-        x, y = position.x, position.y
-        if x < 0 or x > self.grid_size_x or y < -self.case_size or y > self.grid_size_y:
-            return None
-        y += self.case_size
-        # Calculate the column number (1-based)
-        col = int((x - 1) // self.case_size) + 1
-
-        complete_squares = (self.grid_size_y - y) // self.case_size
-
-        letter_index = int(complete_squares)
-
-        letter = chr(65 + letter_index)
-
-        return f"{letter}{col}"
-
-    def match_case_to_coord(self, case: str):
-        if not case or len(case) < 2:
-            return None
-
-        letter = case[0].upper()
-        try:
-            number = int(case[1:])
-        except ValueError:
-            return None
-
-        if not "A" <= letter <= "Z":
-            return None
-
-        max_rows = int(self.grid_size_y // self.case_size)
-        max_cols = int(self.grid_size_x // self.case_size)
-
-        if number < 1 or number > max_cols:
-            return None
-
-        letter_index = ord(letter) - ord("A")
-
-        if letter_index >= max_rows:
-            return None
-
-        # Calculate x coordinate (center of the case)
-        x = (number - 0.5) * self.case_size
-
-        # Calculate y coordinate (center of the case)
-        # Remember: A is at the top, so we subtract from grid_size_y
-        y = self.grid_size_y - (letter_index + 0.5) * self.case_size
-        y -= 50
-
-        return (x, y)
+    def cm_to_ticks(self, velocity: float) -> int:
+        """Convert linear velocity (cm/s) to ticks per second"""
+        return int(velocity * self.config.TICKS_PER_CM)
 
     def update_position(self, new_pose: Position) -> None:
         """
@@ -140,7 +97,7 @@ class PositionController:
         if coord_type == "cm":
             return current_pose.x, current_pose.y
         if coord_type == "case":
-            return self.match_coord_to_case(current_pose)
+            return match_coord_to_case(current_pose)
 
     def set_target_pose(self, target: Position) -> None:
         """

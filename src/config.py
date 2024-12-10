@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import numpy as np
 
 
 @dataclass
@@ -20,8 +21,17 @@ class ControlConfig:
     POSITION_Kd: float = 0.1
     POSITION_MAX_INTEGRAL: float = 1.0
 
+    # Low-level odometry control (encoder-based)
+    ODOMETRY_RATE: int = 50  # 50 Hz
+    WHEEL_RADIUS: float = 6.9  # in cm
+    WHEEL_BASE: float = 6.9  # in cm
+    TICKS_PER_ROTATION: int = 3800
+
+    # Speed limit
+    MAX_TICKS_PER_SEC = 1000
+
     # Low-level motor velocity control (encoder-based)
-    MOTOR_RATE: int = 50  # 50 Hz
+    MOTOR_RATE: int = 100  # 50 Hz
     MOTOR_PERIOD: float = 1 / MOTOR_RATE
     MOTOR_Kp: float = 0.8
     MOTOR_Ki: float = 0.3
@@ -35,6 +45,16 @@ class ControlConfig:
     GRID_SIZE_X: float = 300  # centimeters
     GRID_SIZE_Y: float = 350  # centimeters
     CASE_SIZE: float = 50  # centimeters
+
+    @property
+    def CM_PER_TICK(self) -> float:
+        wheel_circumference = 2 * np.pi * self.WHEEL_RADIUS
+        return wheel_circumference / self.TICKS_PER_ROTATION
+
+    @property
+    def TICKS_PER_CM(self) -> float:
+        wheel_circumference = 2 * np.pi * self.WHEEL_RADIUS
+        return self.TICKS_PER_ROTATION / wheel_circumference
 
 
 @dataclass

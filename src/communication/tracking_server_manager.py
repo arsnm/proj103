@@ -11,7 +11,12 @@ from controllers.race_controller import RaceController
 class TrackingServerManager:
     """Manages hhtp communication with tracking server"""
 
-    def __init__(self, url: str, race_controller: RaceController, test_mode=False):
+    def __init__(
+        self,
+        url: str,
+        race_controller: Optional[RaceController] = None,
+        test_mode=False,
+    ):
         self.url = url
         self.http_session: Optional[aiohttp.ClientSession] = None
         self.running = True
@@ -47,12 +52,13 @@ class TrackingServerManager:
             except Exception as e:
                 print(f"ERROR - Tracking server error: {e}")
 
-    async def send_marker(self, marker: MarkerStatus):
+    async def send_marker(self, marker_id: int, marker_pos: Tuple[float, float]):
         if self.TEST_MODE:
             print("[TEST_MODE] - Sent marker to tracking server")
             return
         id = self.team_id
-        row, col = marker.row, marker.col
+        x, y = marker_pos
+        row, col = match_coord_to_case(x, y)
         url = f"{self.url}/marker"
         params_list = [{"id": id, "col": col, "row": row}]
         for params in params_list:
@@ -89,3 +95,17 @@ class TrackingServerManager:
         self.running = False
         if self.http_session:
             await self.http_session.close()
+
+
+def main(
+    server_url: str,
+    tracking_type: str,
+    pos_x: float,
+    pos_y: float,
+    marker_id: Optional[int],
+):
+    manager = TrackingServerManager("http://proj103.r2.enst.fr/api")
+    if tracking_type == "pos":
+        asyncio.run(manager.update_position((pos_x, pos_y)))
+    elif tracking_type == "marker":
+        asyncio.run(manager.send_marker())

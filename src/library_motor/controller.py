@@ -1,6 +1,6 @@
 import struct
 from numbers import Real
-from typing import Optional
+from typing import Optional, Tuple
 
 # Major and minor version of required firmware
 _REQUIRED_FIRMWARE_VERSION = (1, 2)
@@ -16,6 +16,9 @@ class WhoAmIMismatch(Exception):
 
 class Relative:
     """Opaque structure used to store a reference value for the encoders."""
+
+    def __init__(self):
+        self.latest: Tuple[int, int] = (0, 0)
 
     def _to_i16(self, v):
         v = v & 0xFFFF
@@ -159,7 +162,7 @@ class Controller:
     def new_relative(self) -> Relative:
         """Create a reference that can be used to follow the evolution of
         the number of ticks."""
-        r = Relative
+        r = Relative()
         r.latest = self.get_raw_encoder_ticks()
         return r
 
@@ -171,8 +174,8 @@ class Controller:
         (prev_left, prev_right) = relative.latest
         (new_left, new_right) = relative.latest = self.get_raw_encoder_ticks()
         return (
-            Relative._to_i16(new_left - prev_left),
-            Relative._to_i16(new_right - prev_right),
+            relative._to_i16(new_left - prev_left),
+            relative._to_i16(new_right - prev_right),
         )
 
     def get_status(self) -> dict[str, bool]:

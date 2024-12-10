@@ -131,7 +131,7 @@ class RobotSystem:
                         "mode": self.current_mode.value,
                         "visible_markers": self.race_controller.new_flags(
                             visible_flags
-                        ),
+                        )[0],
                     }
                 )
 
@@ -139,7 +139,7 @@ class RobotSystem:
 
     def position_control_thread(self):
         """High-level position control"""
-        if self.current_mode != RobotMode.AUTOMATIC:
+        if self.current_mode == RobotMode.MANUAL:
             return
 
         current_pose = self.position_controller.get_current_pose()

@@ -7,6 +7,7 @@ from enum import Enum
 import pathlib
 from aiohttp import web
 from websockets.legacy.server import WebSocketServerProtocol, serve
+import sys
 
 
 class ClientType(Enum):
@@ -154,8 +155,8 @@ class CombinedServer:
             await runner.cleanup()
 
 
-def main():
-    server = CombinedServer()
+def main(ws_port=8765, http_port=8000):
+    server = CombinedServer("0.0.0.0", ws_port, http_port)
 
     try:
         asyncio.run(server.start())
@@ -168,4 +169,9 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) == 3:
+        ws_port = int(sys.argv[1])
+        http_port = int(sys.argv[2])
+        main(ws_port, http_port)
+    else:
+        main()
