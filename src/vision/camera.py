@@ -1,6 +1,8 @@
 import cv2
 from typing import Tuple, Optional
 from config import VisionConfig
+import numpy as np
+import os
 
 
 class CameraManager:
@@ -43,3 +45,85 @@ class CameraManager:
         if self.camera is not None:
             self.camera.release()
             self.camera = None
+
+    def take_picture(
+        self, directory: str = "pictures", filename: Optional[str] = None
+    ) -> bool:
+        """
+        Capture a single frame and save it to the specified directory.
+
+        Args:
+            directory: Directory to save the picture (default: 'pictures')
+            filename: Optional filename (default: timestamp)
+
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        # Create directory if it doesn't exist
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+
+        # Read frame
+        success, frame = self.read_frame()
+        if not success:
+            return False
+
+        # Generate filename if not provided
+        if filename is None:
+            from datetime import datetime
+
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"capture_{timestamp}.jpg"
+
+        # Save frame
+        filepath = os.path.join(directory, filename)
+        return cv2.imwrite(filepath, frame)
+
+
+def main():
+    """
+    Main function for CLI usage.
+    Press 'c' to capture a picture
+    Press Ctrl+C to exit
+    """
+    import signal
+    from datetime import datetime
+
+    # Initialize camera
+    config = VisionConfig()  # You'll need to import or define this
+    camera = CameraManager(config)
+    camera.initialize()
+
+    # Flag for graceful shutdown
+    running = True
+
+    def signal_handler(sig, frame):
+        nonlocal running
+        print("\nShutting down...")
+        running = False
+
+    # Register Ctrl+C handler
+    signal.signal(signal.SIGINT, signal_handler)
+
+    print("Press 'c' to capture a picture")
+    print("Press Ctrl+C to exit")
+
+    try:
+        while running:
+            # Check for 'c' key press (waitKey returns -1 if no key was pressed)
+            key = cv2.waitKey(1) & 0xFF
+            if key == ord("c"):
+                success = camera.take_picture()
+                if success:
+                    print(f"Picture taken at {datetime.now().strftime('%H:%M:%S')}")
+                else:
+                    print("Failed to take picture")
+
+    finally:
+        # Cleanup
+        camera.release()
+        cv2.destroyAllWindows()
+
+
+if __name__ == "__main__":
+    main()
