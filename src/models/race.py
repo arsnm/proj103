@@ -1,7 +1,7 @@
 from typing import Optional, Dict
 from dataclasses import dataclass
 import time
-from config import TrackingServerConfig
+from src.config import TrackingServerConfig
 
 
 # GET status request example

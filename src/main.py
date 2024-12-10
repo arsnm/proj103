@@ -1,17 +1,16 @@
 import time
-import signal
 import asyncio
-from config import VisionConfig, ControlConfig, NetworkConfig, RobotConfig
-from vision.camera import CameraManager
-from vision.aruco_detector import ArucoDetector
-from controllers.motor_controller import MotorController
-from controllers.position_controller import PositionController
-from controllers.race_controller import RaceController
-from communication.websocket_manager import WebSocketManager
-from communication.tracking_server_manager import TrackingServerManager
-from utils.threading_utils import ThreadController
-from models.position import Position
-from models.robot_mode import RobotMode
+from src.config import VisionConfig, ControlConfig, NetworkConfig, RobotConfig
+from src.vision.camera import CameraManager
+from src.vision.aruco_detector import ArucoDetector
+from src.controllers.motor_controller import MotorController
+from src.controllers.position_controller import PositionController
+from src.controllers.race_controller import RaceController
+from src.communication.websocket_manager import WebSocketManager
+from src.communication.tracking_server_manager import TrackingServerManager
+from src.utils.threading_utils import ThreadController
+from src.models.position import Position
+from src.models.robot_mode import RobotMode
 
 
 class RobotSystem:

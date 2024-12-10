@@ -1,4 +1,4 @@
-from config import ControlConfig
+from src.config import ControlConfig
 
 control_config = ControlConfig()
 grid_size_x = control_config.GRID_SIZE_X

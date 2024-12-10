@@ -1,7 +1,7 @@
 import numpy as np
 import time
-from models.position import Position
-from config import ControlConfig
+from src.models.position import Position
+from src.config import ControlConfig
 
 
 class OdometryTracker:

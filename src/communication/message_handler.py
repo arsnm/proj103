@@ -1,5 +1,5 @@
 from typing import Dict, Callable, Awaitable, Any
-from models.message import MessageType
+from src.models.message import MessageType
 
 
 class MessageHandler:

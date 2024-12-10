@@ -166,6 +166,9 @@ run_config_env() {
         exit 1
     fi
 
+    echo "Updating python path..."
+    export PYTHONPATH="${PYTHONPATH}:$(pwd)"
+
     echo "All environment requirements are met. Proceeding to integration tests now..."
 }
 
@@ -184,12 +187,14 @@ run_production_test() {
     tmux send-keys -t artefact:0 "cd $(pwd)" C-m
     tmux send-keys -t artefact:0 "source .venv/bin/activate" C-m
     tmux send-keys -t artefact:0 "python src/server/server.py" C-m
+    tmux send-keys -t artefact:0 "export PYTHONPATH=\"${PYTHONPATH}:$(pwd)\"" C-m
 
     echo "Starting second tmux window (robot)..."
     tmux new-window -t artefact
     tmux send-keys -t artefact:1 "cd $(pwd)" C-m
     tmux send-keys -t artefact:1 "source .venv/bin/activate" C-m
     tmux send-keys -t artefact:1 "python src/main.py" C-m
+    tmux send-keys -t artefact:1 "export PYTHONPATH=\"${PYTHONPATH}:$(pwd)\"" C-m
 
     echo "Attaching to the session..."
     tmux attach-session -t artefact

@@ -1,6 +1,6 @@
 from config import ControlConfig
-from .motor_wrapper import MotorWrapper
-from .pid_controller import VelocityPIDController
+from src.controllers.motor_wrapper import MotorWrapper
+from src.controllers.pid_controller import VelocityPIDController
 import time
 
 

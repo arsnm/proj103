@@ -350,7 +350,8 @@ def main(frame_path):
         distance, angle = result
 
         # Print results
-        print(f"{marker_id}, {pos_x:.1f}, {pos_y:.1f}, {distance:.1f}, {angle:.3f}")
+        print(marker_id, pos_x, pos_y, distance, angle)
+        # print(f"{marker_id}, {pos_x:.1f}, {pos_y:.1f}, {distance:.1f}, {angle:.3f}")
 
 
 if __name__ == "__main__":

@@ -86,6 +86,13 @@ class CameraCalibrator:
 
 
 def main():
+    """
+    Main function for CLI usage.
+    Accepts single character input:
+    - 'c': Capture a picture with a 3-second delay
+    - 'r' : Perform the calibration
+    - 'q': Quit the program
+    """
     parser = argparse.ArgumentParser(description="Camera Calibration Script")
     parser.add_argument("--device", type=int, default=0, help="Camera device number")
     parser.add_argument(
@@ -97,13 +104,13 @@ def main():
     parser.add_argument(
         "--squares-x",
         type=int,
-        default=9,
+        default=7,
         help="Number of inner corners on x axis of the chessboard",
     )
     parser.add_argument(
         "--squares-y",
         type=int,
-        default=6,
+        default=7,
         help="Number of inner corners on y axis of the chessboard",
     )
     parser.add_argument(
@@ -120,29 +127,35 @@ def main():
     )
 
     img_counter = 0
+    import time
 
-    print("Press 'c' to capture an image for calibration")
-    print("Press 'ESC' to finish and compute calibration")
+    print("Enter 'c' to capture a picture (3-second delay)")
+    print("Enter 'q' to quit")
 
     while True:
-        ret, frame = cap.read()
-        if not ret:
-            print("Failed to grab frame")
-            break
+        char = input("Enter a command: ").strip().lower()
 
-        ret, drawn_frame = calibrator.find_chessboard_corners(frame.copy())
+        if char == "c":
+            time.sleep(3)
+            ret, frame = cap.read()
+            if not ret:
+                print("Failed to grab frame")
+                break
 
-        key = cv2.waitKey(1)
-        if key == 27:  # ESC
-            break
-        elif key == ord("c"):
+            ret, drawn_frame = calibrator.find_chessboard_corners(frame.copy())
             if ret:
+
                 img_counter += 1
                 print(
                     f"Image {img_counter} captured - {len(calibrator.objpoints)} valid chessboards found"
                 )
             else:
                 print("No chessboard detected in current frame")
+        elif char == "q":
+            print("Performing the calibration and exiting the program...")
+            break
+        else:
+            print("Invalid command. Enter 'c' to capture or 'q' to calibrate and quit.")
 
     cap.release()
 

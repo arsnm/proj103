@@ -2,10 +2,10 @@ from typing import Optional, Tuple
 import time
 import numpy as np
 from dataclasses import dataclass
-from models.position import Position
-from config import ControlConfig
-from utils.conversion_utils import match_coord_to_case, match_case_to_coord
-from controllers.odometry_controller import OdometryController
+from src.models.position import Position
+from src.config import ControlConfig
+from src.utils.conversion_utils import match_coord_to_case, match_case_to_coord
+from src.controllers.odometry_controller import OdometryController
 
 
 @dataclass

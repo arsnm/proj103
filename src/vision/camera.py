@@ -90,46 +90,43 @@ class CameraManager:
 def main():
     """
     Main function for CLI usage.
-    Press 'c' to capture a picture
-    Press Ctrl+C to exit
+    Accepts single character input:
+    - 'c': Capture a picture with a 3-second delay
+    - 'q': Quit the program
     """
-    import signal
     from datetime import datetime
+    import time
 
     # Initialize camera
     config = VisionConfig()  # You'll need to import or define this
     camera = CameraManager(config)
     camera.initialize()
 
-    # Flag for graceful shutdown
-    running = True
-
-    def signal_handler(sig, frame):
-        nonlocal running
-        print("\nShutting down...")
-        running = False
-
-    # Register Ctrl+C handler
-    signal.signal(signal.SIGINT, signal_handler)
-
-    print("Press 'c' to capture a picture")
-    print("Press Ctrl+C to exit")
+    print("Enter 'c' to capture a picture (3-second delay)")
+    print("Enter 'q' to quit")
 
     try:
-        while running:
-            # Check for 'c' key press (waitKey returns -1 if no key was pressed)
-            key = cv2.waitKey(1) & 0xFF
-            if key == ord("c"):
+        while True:
+            char = input("Enter a command: ").strip().lower()  # Take user input
+
+            if char == "c":
+                print("Picture will be taken in 3 seconds...")
+                time.sleep(3)  # Wait for 3 seconds before capturing
                 success = camera.take_picture()
                 if success:
                     print(f"Picture taken at {datetime.now().strftime('%H:%M:%S')}")
                 else:
                     print("Failed to take picture")
+            elif char == "q":
+                print("Exiting the program...")
+                break
+            else:
+                print("Invalid command. Enter 'c' to capture or 'q' to quit.")
 
     finally:
         # Cleanup
         camera.release()
-        cv2.destroyAllWindows()
+        print("Camera resources released.")
 
 
 if __name__ == "__main__":
