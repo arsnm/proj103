@@ -1,8 +1,15 @@
 import cv2
-from typing import Tuple, Optional
-from config import VisionConfig
 import numpy as np
 import os
+from typing import Tuple, Optional
+from pathlib import Path
+import sys
+
+sys.path.append(
+    str(Path(__file__).parent.parent.parent)
+)  # Go up to repo root, then src will be in path
+
+from src.config import VisionConfig
 
 
 class CameraManager:
