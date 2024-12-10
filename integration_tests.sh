@@ -102,7 +102,7 @@ run_config_env() {
 
     echo "Running environment configurations..."
 
-    if [ "$current_dir" != "team5" ]; then
+    if [ "$current_dir" != "team5" || "$current_dir" != "proj103" ]; then
         echo "ERROR: This script must be executed in root directory (team5)"
         echo "Current directory is: $current_dir"
         exit 1
