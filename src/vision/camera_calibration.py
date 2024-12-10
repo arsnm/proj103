@@ -132,8 +132,6 @@ def main():
 
         ret, drawn_frame = calibrator.find_chessboard_corners(frame.copy())
 
-        cv2.imshow("Calibration", drawn_frame)
-
         key = cv2.waitKey(1)
         if key == 27:  # ESC
             break
@@ -147,7 +145,6 @@ def main():
                 print("No chessboard detected in current frame")
 
     cap.release()
-    cv2.destroyAllWindows()
 
     if len(calibrator.objpoints) > 0:
         img_size = (frame.shape[1], frame.shape[0])
