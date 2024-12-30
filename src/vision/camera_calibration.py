@@ -1,10 +1,13 @@
 import numpy as np
 import cv2
+import os
 import argparse
 
 
 class CameraCalibrator:
-    def __init__(self, chessboard_size=(9, 6), square_size=0.025):
+    def __init__(
+        self, chessboard_size=(7, 7), square_size=0.025, visualize=False, dirpath=None
+    ):
         self.chessboard_size = chessboard_size
         self.square_size = square_size  # Size of a square in meters
 
@@ -18,6 +21,10 @@ class CameraCalibrator:
         # Arrays to store object points and image points
         self.objpoints = []  # 3d points in real world space
         self.imgpoints = []  # 2d points in image plane
+
+        self.dirpath = dirpath
+
+        self.visualize = visualize
 
         # Calibration results
         self.camera_matrix = None
@@ -33,39 +40,54 @@ class CameraCalibrator:
         ret, corners = cv2.findChessboardCorners(gray, self.chessboard_size, flags)
 
         if ret:
-            criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
+            criteria = (
+                cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER,
+                30,
+                0.001,
+            )
             corners2 = cv2.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
 
-            cv2.drawChessboardCorners(frame, self.chessboard_size, corners2, ret)
+            img = cv2.drawChessboardCorners(frame, self.chessboard_size, corners2, ret)
             self.objpoints.append(self.objp)
             self.imgpoints.append(corners2)
 
-        return ret, frame
+            if self.visualize:
+                cv2.imshow("img", img)
+                cv2.waitKey(0)
 
-    def calibrate(self, img_size):
+    def calibrate(self):
+        images = os.listdir(self.dirpath)
+        img_size = None
+
+        for fname in images:
+            img = cv2.imread(os.path.join(self.dirpath, fname))
+            self.find_chessboard_corners(img)
+            img_size = img.shape[::-1]
+
         if len(self.objpoints) < 5:
             raise ValueError("Need at least 5 valid chessboard images for calibration")
 
-        ret, self.camera_matrix, self.dist_coeffs, self.rvecs, self.tvecs = (
-            cv2.calibrateCamera(self.objpoints, self.imgpoints, img_size, None, None)
-        )
-
-        mean_error = 0
-        for i in range(len(self.objpoints)):
-            imgpoints2, _ = cv2.projectPoints(
-                self.objpoints[i],
-                self.rvecs[i],
-                self.tvecs[i],
-                self.camera_matrix,
-                self.dist_coeffs,
+        if img_size is not None:
+            ret, self.camera_matrix, self.dist_coeffs, self.rvecs, self.tvecs = (
+                cv2.calibrateCamera(
+                    self.objpoints, self.imgpoints, img_size, None, None
+                )
             )
-            error = cv2.norm(self.imgpoints[i], imgpoints2, cv2.NORM_L2) / len(
-                imgpoints2
-            )
-            mean_error += error
-        self.error = mean_error / len(self.objpoints)
 
-        return self.error
+            mean_error = 0
+            for i in range(len(self.objpoints)):
+                imgpoints2, _ = cv2.projectPoints(
+                    self.objpoints[i],
+                    self.rvecs[i],
+                    self.tvecs[i],
+                    self.camera_matrix,
+                    self.dist_coeffs,
+                )
+                error = cv2.norm(self.imgpoints[i], imgpoints2, cv2.NORM_L2) / len(
+                    imgpoints2
+                )
+                mean_error += error
+            self.error = mean_error / len(self.objpoints)
 
     def save_calibration(self, filename):
         if self.camera_matrix is None or self.dist_coeffs is None:
@@ -88,85 +110,71 @@ class CameraCalibrator:
 def main():
     """
     Main function for CLI usage.
-    Accepts single character input:
-    - 'c': Capture a picture with a 3-second delay
-    - 'r' : Perform the calibration
-    - 'q': Quit the program
     """
     parser = argparse.ArgumentParser(description="Camera Calibration Script")
-    parser.add_argument("--device", type=int, default=0, help="Camera device number")
     parser.add_argument(
+        "-o",
         "--output",
         type=str,
         default="camera_calibration.npz",
         help="Output file for calibration data",
     )
     parser.add_argument(
+        "-x",
         "--squares-x",
         type=int,
         default=7,
         help="Number of inner corners on x axis of the chessboard",
     )
     parser.add_argument(
+        "-y",
         "--squares-y",
         type=int,
         default=7,
         help="Number of inner corners on y axis of the chessboard",
     )
     parser.add_argument(
+        "-s",
         "--square-size",
         type=float,
         default=0.025,
         help="Size of a chessboard square in meters",
     )
+    parser.add_argument(
+        "-d" "--dir-path",
+        type=str,
+        help="Directory from which/where to load/save the images",
+    )
+    parser.add_argument(
+        "-v" "--visualize",
+        type=str,
+        default="False",
+        help="To visualize each checkboard image",
+    )
+
     args = parser.parse_args()
 
-    cap = cv2.VideoCapture(args.device)
+    if args.visualize.lower() == "true":
+        visualize = True
+    else:
+        visualize = False
+
     calibrator = CameraCalibrator(
-        chessboard_size=(args.squares_x, args.squares_y), square_size=args.square_size
+        chessboard_size=(args.squares_x, args.squares_y),
+        square_size=args.square_size,
+        visualize=visualize,
+        dirpath=args.dir_path,
     )
 
     img_counter = 0
-    import time
 
-    print("Enter 'c' to capture a picture (3-second delay)")
-    print("Enter 'q' to quit")
+    calibrator.calibrate()
 
-    while True:
-        char = input("Enter a command: ").strip().lower()
+    print(f"Calibration error: {calibrator.error}")
+    print(f"Camera matrix: {calibrator.camera_matrix}")
+    print(f"Camera matrix: {calibrator.dist_coeffs}")
 
-        if char == "c":
-            time.sleep(3)
-            ret, frame = cap.read()
-            if not ret:
-                print("Failed to grab frame")
-                break
-
-            ret, drawn_frame = calibrator.find_chessboard_corners(frame.copy())
-            if ret:
-
-                img_counter += 1
-                print(
-                    f"Image {img_counter} captured - {len(calibrator.objpoints)} valid chessboards found"
-                )
-            else:
-                print("No chessboard detected in current frame")
-        elif char == "q":
-            print("Performing the calibration and exiting the program...")
-            break
-        else:
-            print("Invalid command. Enter 'c' to capture or 'q' to calibrate and quit.")
-
-    cap.release()
-
-    if len(calibrator.objpoints) > 0:
-        img_size = (frame.shape[1], frame.shape[0])
-
-        error = calibrator.calibrate(img_size)
-
-        calibrator.save_calibration(args.output)
-    else:
-        print("No valid calibration data collected")
+    calibrator.save_calibration(args.output)
 
 
 if __name__ == "__main__":

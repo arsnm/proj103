@@ -1,4 +1,4 @@
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 from dataclasses import dataclass
 import time
 from src.config import TrackingServerConfig
@@ -35,6 +35,7 @@ class MarkerStatus:
         self.time: int = marker_status["time"]  # in ms
         self.valid: bool = marker_status["valid"]
         self.sent: bool = sent
+        self.scan: bool = marker_status["scan"]
 
 
 class RaceStatus:
@@ -57,3 +58,43 @@ class RaceStatus:
         else:
             self.initialized = False
         self.last_updated: Optional[int] = None
+
+    def get_positions(self) -> Optional[List[Dict]]:
+        if self.initialized:
+            positions = []
+            for team_id in self.positions:
+                positions.append(
+                    {
+                        "team": team_id,
+                        "x": self.positions[team_id].x,
+                        "y": self.positions[team_id].y,
+                        "num_markers": self.positions[team_id].num_markers,
+                    }
+                )
+            return positions
+
+    def get_markers(self) -> Optional[List[Dict]]:
+        if self.initialized:
+            markers = []
+            for marker_id in self.markers:
+                marker = self.markers[marker_id]
+                markers.append(
+                    {
+                        "team": marker.team,
+                        "id": marker.id,
+                        "col": marker.col,
+                        "row": marker.row,
+                        "time": marker.time,
+                        "valid": marker.valid,
+                        "scan": marker.scan,
+                    }
+                )
+
+    def get_status(self) -> Optional[Dict]:
+        if self.initialized:
+            return {
+                "status": self.status,
+                "elapsed": self.elapsed,
+                "positions": self.get_positions(),
+                "markers": self.get_markers(),
+            }

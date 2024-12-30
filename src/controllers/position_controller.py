@@ -1,250 +1,218 @@
-from typing import Optional, Tuple
-import time
-import numpy as np
 from dataclasses import dataclass
-from src.models.position import Position
+from enum import Enum
+import numpy as np
+from typing import Tuple, Callable
+from src.utils.conversion_utils import *
 from src.config import ControlConfig
-from src.utils.conversion_utils import match_coord_to_case, match_case_to_coord
-from src.controllers.odometry_controller import OdometryController
+import queue
 
 
 @dataclass
-class PositionError:
-    """Represents linear and angular errors for PID control"""
+class PositionConfig:
+    # Grid parameters
+    GRID_CASE_SIZE_CM: float = ControlConfig.GRID_CASE_SIZE
 
-    linear: float  # Linear error in meters
-    angular: float  # Angular error in radians
+    # Robot parameters
+    WHEEL_RADIUS_CM: float = ControlConfig.WHEEL_RADIUS_CM
+    WHEEL_BASE_CM: float = ControlConfig.WHEEL_BASE_CM
+    TICKS_PER_ROTATION: int = ControlConfig.TICKS_PER_ROTATION
+
+    # Control parameters
+    POSITION_THRESHOLD_CM: float = ControlConfig.POSITION_THRESHOLD_CM
+    ANGLE_THRESHOLD_RAD: float = ControlConfig.ANGLE_THRESHOLD_RAD
+    MAX_SPEED_TICKS: int = ControlConfig.MAX_SPEED_TICKS
+
+    @property
+    def CM_PER_TICK(self) -> float:
+        wheel_circumference = 2 * np.pi * self.WHEEL_RADIUS_CM
+        return wheel_circumference / self.TICKS_PER_ROTATION
+
+
+class MovementState(Enum):
+    MOVING = 1
+    TURNING = 2
+
+    QUEUED = 3
+
+    DONE = 4
 
 
 class PositionController:
-    """
-    High-level position controller using camera feedback
-    Implements PID control for both linear and angular movements
-    """
-
-    def __init__(self, config: ControlConfig):
+    def __init__(self, config: PositionConfig):
         self.config = config
 
-        # Controller states
-        self.current_pose: Optional[Position] = None
-        self.target_pose = Position(
-            x=0.0, y=0.0, theta=0.0, camera_angle=0.0, confidence=1.0
-        )
-        self.last_control_time = time.time()
+        # Current position state
+        self.x = 0.0
+        self.y = 0.0
+        self.theta = 0.0
 
-        # PID control states
-        self.linear_integral = 0.0
-        self.angular_integral = 0.0
-        self.last_error: Optional[PositionError] = None
+        # Target state
+        self.target_x = 0.0
+        self.target_y = 0.0
+        self.target_theta = 0.0
 
-        # Add odometry tracker
-        self.odometry = OdometryController(config)
+        # Start state
+        self.start_x = 0.0
+        self.start_y = 0.0
+        self.start_theta = 0.0
 
-        # Position tracking
-        self.last_position_update = 0.0
-        self.position_timeout = 0.5  # seconds
+        self.state = MovementState.DONE
 
-        # Control parameters
-        self.max_linear_velocity = config.MAX_LINEAR_SPEED  # cm/s
-        self.max_angular_velocity = config.MAX_ANGULAR_SPEED  # rad/s
-        self.heading_threshold = 0.1  # radians
-        self.position_threshold = 5.0  # cm
-        self.min_confidence = 0.3
+        self.movement_queue = queue.Queue()
 
-        # Motor controller reference
-        self.motor_controller = None
+    def move_distance(self, distance_cm: float) -> None:
+        """Move forward (positive) or backward (negative) by a specified distance in cm"""
+        self.target_distance_cm = self.x + distance_cm
+        self.start_x_cm = self.x_cm
+        self.start_y_cm = self.y_cm
+        self.state = MovementState.MOVING_DISTANCE
 
-    def cm_to_ticks(self, velocity: float) -> int:
-        """Convert linear velocity (cm/s) to ticks per second"""
-        return int(velocity * self.config.TICKS_PER_CM)
+    def turn_angle(self, angle_rad: float) -> None:
+        """Turn by a specified angle in radians (-π to π)"""
+        # Normalize angle to [-pi, pi]
+        angle_rad = np.arctan2(np.sin(angle_rad), np.cos(angle_rad))
+        self.target_theta_rad = self.theta_rad + angle_rad
+        self.state = MovementState.TURNING_ANGLE
 
-    def update_position(self, new_pose: Position) -> None:
-        """
-        Update current position from vision system
-        Args:
-            new_pose: New position from vision system
-        """
-        # Only update if confidence is sufficient
-        if new_pose.confidence >= self.min_confidence:
-            self.current_pose = new_pose
-            self.last_position_update = time.time()
+    def move_to_case(self, target_case: str, final_theta_rad: float) -> None:
+        """Start movement to target case with final orientation"""
+        self.target_x_cm, self.target_y_cm = match_case_to_coord(target_case)
+        self.target_theta_rad = final_theta_rad
+        self.state = MovementState.ALIGNING_Y
 
-    def get_current_pose(self) -> Optional[Position]:
-        """
-        Get current position if available and valid
-        Returns:
-            Current position or None if data is invalid/expired
-        """
-        if self.current_pose is None:
-            return None
+    def update_position(self, delta_left_ticks: int, delta_right_ticks: int) -> None:
+        """Update position based on encoder tick changes"""
+        # Convert ticks to distances
+        left_dist = delta_left_ticks * self.config.CM_PER_TICK
+        right_dist = delta_right_ticks * self.config.CM_PER_TICK
 
-        # Check if position data is too old
-        if time.time() - self.last_position_update > self.position_timeout:
-            return None
+        # Calculate robot movement
+        center_dist = (left_dist + right_dist) / 2
+        delta_theta = (right_dist - left_dist) / self.config.WHEEL_BASE_CM
 
-        # Check confidence
-        if self.current_pose.confidence < self.min_confidence:
-            return None
+        # Update position
+        self.x_cm += center_dist * np.cos(self.theta_rad)
+        self.y_cm += center_dist * np.sin(self.theta_rad)
+        self.theta_rad += delta_theta
 
-        return self.current_pose
+        # Normalize angle to [-pi, pi]
+        self.theta_rad = np.arctan2(np.sin(self.theta_rad), np.cos(self.theta_rad))
 
-    def get_current_coord(
-        self, coord_type: str = "cm"
-    ) -> Optional[Tuple[float, float] | str]:
-        current_pose = self.get_current_pose()
-        if current_pose is None:
-            return
-        if coord_type == "cm":
-            return current_pose.x, current_pose.y
-        if coord_type == "case":
-            return match_coord_to_case(current_pose)
+    def update_trusted_position(self, x: float, y: float, theta_rad: float) -> None:
+        """Update position from trusted external source"""
+        self.x = x
+        self.y = y
+        self.theta_rad = theta_rad
 
-    def set_target_pose(self, target: Position) -> None:
-        """
-        Set new target position and reset PID states
-        Args:
-            target: Target position to reach
-        """
-        self.target_pose = target
-        # Reset PID states for new target
-        self.linear_integral = 0.0
-        self.angular_integral = 0.0
-        self.last_error = None
+    def compute_wheel_speeds(self) -> Tuple[int, int]:
+        """Compute required wheel speeds based on current state and position"""
+        if self.state == MovementState.DONE:
+            return 0, 0
 
-    def get_target_pose(self) -> Position:
-        """Get current target position"""
-        return self.target_pose
+        speed = self.config.MAX_SPEED_TICKS
 
-    def compute_pose_error(self, current: Position, target: Position) -> PositionError:
-        """
-        Compute linear and angular errors between current and target pose
-        Args:
-            current: Current position
-            target: Target position
-        Returns:
-            PositionError containing linear and angular errors
-        """
-        # Compute position error
-        dx = target.x - current.x
-        dy = target.y - current.y
-        linear_error = np.sqrt(dx * dx + dy * dy)
+        if self.state == MovementState.MOVING_DISTANCE:
+            # Calculate remaining distance
+            distance_moved = self.get_distance_moved()
+            remaining_distance = self.target_distance_cm - distance_moved
 
-        # Compute desired heading to target
-        desired_theta = np.arctan2(dy, dx)
+            if abs(remaining_distance) > self.config.POSITION_THRESHOLD_CM:
+                # Add angle correction to maintain straight line
+                initial_angle = self.theta_rad - (
+                    np.pi if self.target_distance_cm < 0 else 0
+                )
+                angle_error = initial_angle - self.theta_rad
+                angle_error = np.arctan2(np.sin(angle_error), np.cos(angle_error))
+                correction = int(angle_error * speed * 0.2)  # 20% max correction
 
-        # Consider camera angle in error computation if available
-        effective_theta = current.theta
-        if current.camera_angle is not None:
-            effective_theta += current.camera_angle
+                # Set direction based on target distance sign
+                direction = np.sign(self.target_distance_cm)
+                base_speed = speed * direction
+                return (base_speed - correction, base_speed + correction)
+            else:
+                self.state = MovementState.DONE
+                return 0, 0
 
-        # Compute angular error (normalized to [-pi, pi])
-        angular_error = desired_theta - effective_theta
-        angular_error = np.arctan2(np.sin(angular_error), np.cos(angular_error))
+        elif self.state == MovementState.TURNING_ANGLE:
+            angle_error = self.target_theta_rad - self.theta_rad
+            angle_error = np.arctan2(np.sin(angle_error), np.cos(angle_error))
 
-        return PositionError(linear_error, angular_error)
+            if abs(angle_error) > self.config.ANGLE_THRESHOLD_RAD:
+                return (
+                    -speed if angle_error > 0 else speed,
+                    speed if angle_error > 0 else -speed,
+                )
+            else:
+                self.state = MovementState.DONE
+                return 0, 0
 
-    def compute_control(self, current_pos: Position) -> Optional[Tuple[float, float]]:
-        """
-        Compute wheel velocities using PID control
-        Args:
-            current_pos: Current robot position
-        Returns:
-            Tuple of (left_velocity, right_velocity) or None if control update not needed
-        """
-        current_time = time.time()
-        dt = current_time - self.last_control_time
+        if self.state in [
+            MovementState.ALIGNING_Y,
+            MovementState.ALIGNING_X,
+            MovementState.FINAL_ROTATION,
+        ]:
+            # Handle rotation states
+            if self.state == MovementState.ALIGNING_Y:
+                target_angle = 0 if self.target_y_cm > self.y_cm else np.pi
+            elif self.state == MovementState.ALIGNING_X:
+                target_angle = np.pi / 2 if self.target_x_cm > self.x_cm else -np.pi / 2
+            else:  # FINAL_ROTATION
+                target_angle = self.target_theta_rad
 
-        # Check if enough time has passed for control update
-        if dt < self.config.POSITION_PERIOD:
-            return None
+            angle_error = target_angle - self.theta_rad
+            angle_error = np.arctan2(np.sin(angle_error), np.cos(angle_error))
 
-        # Scale control based on confidence
-        confidence_factor = current_pos.confidence
+            if abs(angle_error) > self.config.ANGLE_THRESHOLD_RAD:
+                return (
+                    -speed if angle_error > 0 else speed,
+                    speed if angle_error > 0 else -speed,
+                )
+            else:
+                self.state = {
+                    MovementState.ALIGNING_Y: MovementState.MOVING_Y,
+                    MovementState.ALIGNING_X: MovementState.MOVING_X,
+                    MovementState.FINAL_ROTATION: MovementState.DONE,
+                }[self.state]
+                return 0, 0
 
-        # Compute current error
-        error = self.compute_pose_error(current_pos, self.target_pose)
+        elif self.state in [MovementState.MOVING_Y, MovementState.MOVING_X]:
+            # Handle movement states
+            if self.state == MovementState.MOVING_Y:
+                error = self.target_y_cm - self.y_cm
+                current_angle = 0 if error > 0 else np.pi
+            else:  # MOVING_X
+                error = self.target_x_cm - self.x_cm
+                current_angle = np.pi / 2 if error > 0 else -np.pi / 2
 
-        if self.last_error is None:
-            self.last_error = error
+            if abs(error) > self.config.POSITION_THRESHOLD_CM:
+                # Add small angle correction to maintain straight line
+                angle_error = current_angle - self.theta_rad
+                angle_error = np.arctan2(np.sin(angle_error), np.cos(angle_error))
+                correction = int(angle_error * speed * 0.2)  # 20% max correction
 
-        # Update integrals with anti-windup
-        self.linear_integral = np.clip(
-            self.linear_integral + error.linear * dt,
-            -self.config.POSITION_MAX_INTEGRAL,
-            self.config.POSITION_MAX_INTEGRAL,
-        )
-        self.angular_integral = np.clip(
-            self.angular_integral + error.angular * dt,
-            -self.config.POSITION_MAX_INTEGRAL,
-            self.config.POSITION_MAX_INTEGRAL,
-        )
+                base_speed = (
+                    speed if abs(error) > self.config.POSITION_THRESHOLD_CM else 0
+                )
+                return (base_speed - correction, base_speed + correction)
 
-        # Compute derivatives
-        linear_derivative = (error.linear - self.last_error.linear) / dt
-        angular_derivative = (error.angular - self.last_error.angular) / dt
+            else:
+                self.state = {
+                    MovementState.MOVING_Y: MovementState.ALIGNING_X,
+                    MovementState.MOVING_X: MovementState.FINAL_ROTATION,
+                }[self.state]
+                return 0, 0
 
-        # Compute PID outputs with confidence scaling
-        linear_control = confidence_factor * (
-            self.config.POSITION_Kp * error.linear
-            + self.config.POSITION_Ki * self.linear_integral
-            + self.config.POSITION_Kd * linear_derivative
-        )
+        return 0, 0
 
-        angular_control = confidence_factor * (
-            self.config.POSITION_Kp * error.angular
-            + self.config.POSITION_Ki * self.angular_integral
-            + self.config.POSITION_Kd * angular_derivative
-        )
-
-        # Update control states
-        self.last_error = error
-        self.last_control_time = current_time
-
-        # Convert to wheel velocities
-        return self.control_to_wheel_velocities(linear_control, angular_control)
-
-    def control_to_wheel_velocities(
-        self, linear_control: float, angular_control: float
-    ) -> Tuple[float, float]:
-        """
-        Convert linear and angular control signals to wheel velocities
-        Args:
-            linear_control: Linear velocity control signal
-            angular_control: Angular velocity control signal
-        Returns:
-            Tuple of left and right wheel velocities
-        """
-        # Apply velocity limits
-        linear_control = np.clip(
-            linear_control, -self.max_linear_velocity, self.max_linear_velocity
-        )
-        angular_control = np.clip(
-            angular_control, -self.max_angular_velocity, self.max_angular_velocity
-        )
-
-        # Convert to differential drive commands
-        left_velocity = linear_control - angular_control
-        right_velocity = linear_control + angular_control
-
-        # Normalize to maintain maximum velocities
-        max_velocity = max(abs(left_velocity), abs(right_velocity))
-        if max_velocity > 1.0:
-            left_velocity /= max_velocity
-            right_velocity /= max_velocity
-
-        return left_velocity, right_velocity
+    def execute_instruction(self, instructions: str):
+        list_movements = parse_instructions(instructions)
+        for movement in list_movements:
+            type, length = movement
+            if type == "r":
+                self.move_distance(length)
+            elif type == "a":
+                self.turn_angle(length)
 
     def at_target(self) -> bool:
-        """
-        Check if robot has reached target position
-        Returns:
-            True if robot is at target position and orientation
-        """
-        if self.current_pose is None:
-            return False
-
-        error = self.compute_pose_error(self.current_pose, self.target_pose)
-        return (
-            abs(error.linear) < self.position_threshold
-            and abs(error.angular) < self.heading_threshold
-        )
+        """Check if robot has reached target position and orientation"""
+        return self.state == MovementState.DONE

@@ -11,13 +11,13 @@ import sys
 class MarkerType(Enum):
     CORNER = "corner"  # 10x10cm markers for robot localization
     FLAG = "flag"  # 2x2cm markers for capture points
-    NON_VALID = "non_valid"  # 2x2cm markers with id 0
+    HINT_FLAG = "hint_flag"  # 2x2cm markers with id 0
 
 
 @dataclass
 class MarkerConfig:
     type: MarkerType
-    size: float  # Marker size in centimeters
+    size: float  # Marker size in meters
     id_range: range  # Valid marker IDs for this type
     max_distance: float  # Maximum detection distance in centimeters
 
@@ -37,35 +37,33 @@ class ArucoDetector:
         self.marker_configs = {
             MarkerType.CORNER: MarkerConfig(
                 type=MarkerType.CORNER,
-                size=10.0,  # 10cm
+                size=0.1,  # 10cm
                 id_range=range(1, 5),  # IDs 1-4 for corners
                 max_distance=float("inf"),  # No distance limit for corners
             ),
             MarkerType.FLAG: MarkerConfig(
                 type=MarkerType.FLAG,
-                size=2.0,  # 2cm
+                size=0.02,  # 2cm
                 id_range=range(5, 17),  # IDs 5-16 for flags
-                max_distance=70.7,  # ~70.7cm (sqrt(2) * 50cm)
+                max_distance=0.5,  # 50cm
             ),
-            MarkerType.NON_VALID: MarkerConfig(
-                type=MarkerType.NON_VALID,
-                size=2.0,  # 2cm
+            MarkerType.HINT_FLAG: MarkerConfig(
+                type=MarkerType.HINT_FLAG,
+                size=0.02,  # 2cm
                 id_range=range(0, 1),  # ID 0
-                max_distance=70.7,  # ~70.7cm
+                max_distance=0.5,  # 50cm
             ),
         }
 
         # Known positions of corner markers in world frame (centimeters)
         self.corner_positions = {
             4: (0.0, 0.0),  # Origin (bottom-left)
-            3: (300.0, 0.0),  # Bottom-right
-            2: (300.0, 300.0),  # Top-right
-            1: (0.0, 300.0),  # Top-left
+            3: (3.0, 0.0),  # Bottom-right
+            2: (3.0, 3.0),  # Top-right
+            1: (0.0, 3.0),  # Top-left
         }
 
         self.load_calibration(calibration_file)
-        self.last_pose = None
-        self.position_filter_alpha = 0.3
 
     def load_calibration(self, calibration_file: str):
         """Load camera calibration parameters from NPZ file"""
@@ -117,14 +115,14 @@ class ArucoDetector:
     def classify_marker(self, marker_id: int) -> Optional[MarkerType]:
         """
         Determine marker type based on its ID.
-        Returns: CORNER (1-4), FLAG (5-16), NON_VALID (0), or None if invalid
+        Returns: CORNER (1-4), FLAG (5-16), HINT_FLAG (0), or None if invalid
         """
         if marker_id in self.marker_configs[MarkerType.CORNER].id_range:
             return MarkerType.CORNER
         elif marker_id in self.marker_configs[MarkerType.FLAG].id_range:
             return MarkerType.FLAG
-        elif marker_id in self.marker_configs[MarkerType.NON_VALID].id_range:
-            return MarkerType.NON_VALID
+        elif marker_id in self.marker_configs[MarkerType.HINT_FLAG].id_range:
+            return MarkerType.HINT_FLAG
         return None
 
     def get_marker_position(
@@ -137,7 +135,7 @@ class ArucoDetector:
             marker_type: Type of marker for correct size
         Returns:
             Tuple[float, float]: (distance in cm, angle in rad)
-            - distance: distance in centimeters from camera to marker center
+            - distance: distance in centimeters from camera to marker center, in the x,y plan
             - angle: global angle in radians from camera's optical axis
               (0 = center, positive = anti-clockwise/left)
             or None if calculation fails
@@ -216,87 +214,86 @@ class ArucoDetector:
         self.last_pose = filtered_pose
         return filtered_pose
 
+    def estimate_robot_pose(self, frame) -> Optional[Position]:
+        """
+        Estimate robot's position and orientation in the world frame.
 
-def estimate_robot_pose(self, frame) -> Optional[Position]:
-    """
-    Estimate robot's position and orientation in the world frame.
+        Returns:
+            Position object with:
+            - x,y: position in cm
+            - theta: absolute orientation in rad [-π, π] where 0=north, positive=clockwise
+            or None if position cannot be determined
+        """
+        # Get detected markers
+        ids, corners, _ = self.detect_markers(frame)
+        if not ids:
+            return None
 
-    Returns:
-        Position object with:
-        - x,y: position in cm
-        - theta: absolute orientation in rad [-π, π] where 0=north, positive=clockwise
-        or None if position cannot be determined
-    """
-    # Get detected markers
-    ids, corners, _ = self.detect_markers(frame)
-    if not ids:
-        return None
+        positions = []  # Will store (x,y) positions computed from each marker
+        orientations = []  # Will store orientations computed from each marker
 
-    positions = []  # Will store (x,y) positions computed from each marker
-    orientations = []  # Will store orientations computed from each marker
+        # Process each detected marker
+        for i, marker_id in enumerate(ids):
+            # Only use corner markers (IDs 1-4) for localization
+            marker_type = self.classify_marker(marker_id)
+            if marker_type != MarkerType.CORNER:
+                continue
 
-    # Process each detected marker
-    for i, marker_id in enumerate(ids):
-        # Only use corner markers (IDs 1-4) for localization
-        marker_type = self.classify_marker(marker_id)
-        if marker_type != MarkerType.CORNER:
-            continue
+            # Get distance and angle to marker from camera's perspective
+            result = self.get_marker_position(corners[i : i + 1], marker_type)
+            if not result:
+                continue
+            distance, angle = (
+                result  # distance in cm, angle in rad from camera's optical axis
+            )
 
-        # Get distance and angle to marker from camera's perspective
-        result = self.get_marker_position(corners[i : i + 1], marker_type)
-        if not result:
-            continue
-        distance, angle = (
-            result  # distance in cm, angle in rad from camera's optical axis
+            # Get marker's known position in world frame
+            world_x, world_y = self.corner_positions[marker_id]
+
+            # Calculate marker's orientation in camera frame
+            _, rvec, _ = cv2.solvePnP(
+                np.array(
+                    [[-5, 5, 0], [5, 5, 0], [5, -5, 0], [-5, -5, 0]], dtype=np.float32
+                ),
+                corners[i][0],
+                self.camera_matrix,
+                self.dist_coeffs,
+            )
+            # Convert rotation vector to matrix and extract orientation
+            rmat = cv2.Rodrigues(rvec)[0]
+            marker_orientation = np.arctan2(rmat[1, 0], rmat[0, 0])
+
+            # Calculate robot's position
+            # Using the known marker position and the detected distance/angle,
+            # we can determine where the robot must be
+            robot_x = world_x - distance * np.cos(angle)
+            robot_y = world_y - distance * np.sin(angle)
+
+            positions.append((robot_x, robot_y))
+            orientations.append(marker_orientation)
+
+        if not positions:
+            return None
+
+        # Average all position and orientation estimates
+        avg_x, avg_y = np.mean(positions, axis=0)
+        avg_orientation = np.mean(orientations)
+
+        # Convert camera-relative orientation to absolute orientation
+        # (where 0 is north, positive is clockwise)
+        absolute_orientation = self.calculate_absolute_orientation(avg_orientation)
+
+        # Create and return filtered position
+        new_pose = Position(
+            x=float(avg_x),
+            y=float(avg_y),
+            theta=float(absolute_orientation),
+            camera_angle=float(avg_orientation),
+            timestamp=time.time(),
+            confidence=min(
+                len(positions) / 4.0, 1.0
+            ),  # Higher confidence with more markers
         )
-
-        # Get marker's known position in world frame
-        world_x, world_y = self.corner_positions[marker_id]
-
-        # Calculate marker's orientation in camera frame
-        _, rvec, _ = cv2.solvePnP(
-            np.array(
-                [[-5, 5, 0], [5, 5, 0], [5, -5, 0], [-5, -5, 0]], dtype=np.float32
-            ),
-            corners[i][0],
-            self.camera_matrix,
-            self.dist_coeffs,
-        )
-        # Convert rotation vector to matrix and extract orientation
-        rmat = cv2.Rodrigues(rvec)[0]
-        marker_orientation = np.arctan2(rmat[1, 0], rmat[0, 0])
-
-        # Calculate robot's position
-        # Using the known marker position and the detected distance/angle,
-        # we can determine where the robot must be
-        robot_x = world_x - distance * np.cos(angle)
-        robot_y = world_y - distance * np.sin(angle)
-
-        positions.append((robot_x, robot_y))
-        orientations.append(marker_orientation)
-
-    if not positions:
-        return None
-
-    # Average all position and orientation estimates
-    avg_x, avg_y = np.mean(positions, axis=0)
-    avg_orientation = np.mean(orientations)
-
-    # Convert camera-relative orientation to absolute orientation
-    # (where 0 is north, positive is clockwise)
-    absolute_orientation = self.calculate_absolute_orientation(avg_orientation)
-
-    # Create and return filtered position
-    new_pose = Position(
-        x=float(avg_x),
-        y=float(avg_y),
-        theta=float(absolute_orientation),
-        camera_angle=float(avg_orientation),
-        timestamp=time.time(),
-        confidence=min(
-            len(positions) / 4.0, 1.0
-        ),  # Higher confidence with more markers
-    )
 
     return self.filter_position(new_pose)
 

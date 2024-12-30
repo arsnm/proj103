@@ -3,7 +3,6 @@ from enum import Enum
 from typing import Any, Dict, Optional
 import json
 import time
-from src.models..position import Position
 from src.models.robot_mode import RobotMode
 
 
@@ -17,6 +16,7 @@ class MessageType(Enum):
     MODE_CHANGE = "mode_change"
     TARGET_POSITION = "target_position"
     MANUAL_CONTROL = "manual_control"
+    AUTOMATIC = "automatic"
 
     # System messages
     ERROR = "error"

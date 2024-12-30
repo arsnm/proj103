@@ -32,3 +32,9 @@ class RaceController:
             id = marker["id"]
             self.race_status.markers[id] = MarkerStatus(marker)
         self.race_status.last_updated = time_ns()
+
+    def get_status(self):
+        return self.race_status.get_status()
+
+    def update_register(self, register_id: int, data: Dict):
+        pass

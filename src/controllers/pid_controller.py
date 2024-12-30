@@ -2,47 +2,40 @@ import time
 import numpy as np
 
 
-class VelocityPIDController:
-    """PID controller for motor velocity control"""
-
+class PIDController:
     def __init__(self, kp: float, ki: float, kd: float, max_integral: float):
         self.kp = kp
         self.ki = ki
         self.kd = kd
         self.max_integral = max_integral
+        self.reset()
 
+    def reset(self):
         self.integral = 0.0
-        self.last_error = None
+        self.prev_error = 0.0
         self.last_time = time.time()
 
     def compute(self, target: float, current: float) -> float:
-        """Compute PID control value"""
-        current_time = time.time()
-        dt = current_time - self.last_time
+        now = time.time()
+        dt = now - self.last_time
+        if dt <= 0:
+            return 0.0
 
         error = target - current
 
-        # Proportional term
-        p_term = self.kp * error
-
-        # Integral term with anti-windup
+        # Update integral with anti-windup
         self.integral = np.clip(
             self.integral + error * dt, -self.max_integral, self.max_integral
         )
-        i_term = self.ki * self.integral
 
-        # Derivative term
-        if self.last_error is not None:
-            d_term = self.kd * (error - self.last_error) / dt
-        else:
-            d_term = 0
+        # Calculate derivative
+        derivative = (error - self.prev_error) / dt if dt > 0 else 0
 
-        self.last_error = error
-        self.last_time = current_time
+        # Compute control output
+        output = self.kp * error + self.ki * self.integral + self.kd * derivative
 
-        return p_term + i_term + d_term
+        # Update state
+        self.prev_error = error
+        self.last_time = now
 
-    def reset(self):
-        """Reset controller state"""
-        self.integral = 0.0
-        self.last_error = None
+        return output

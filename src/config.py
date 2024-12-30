@@ -6,37 +6,38 @@ import numpy as np
 class VisionConfig:
     CAMERA_FPS: int = 30
     FRAME_PERIOD: float = 1 / CAMERA_FPS
-    CAMERA_WIDTH: int = 640
-    CAMERA_HEIGHT: int = 480
+    CAMERA_WIDTH: int = 1280
+    CAMERA_HEIGHT: int = 720
     CALIBRATION_FILE: str = "camera_calibration.npz"
+
+
+@dataclass
+class MotorConfig:
+    SPEED_KP: float = 1.0
+    SPEED_KI: float = 0.1
+    SPEED_KD: float = 0.05
+    MAX_INTEGRAL: float = 1000.0
+
+    # Acceleration parameters (ticks/100ms/s)
+    MAX_ACCELERATION: float = 40  # Maximum change in speed per second
+    MAX_SPEED: int = 2000  # Maximum speed in ticks per 100ms
+
+    UPDATE_RATE: int = 1000  # Hz
 
 
 @dataclass
 class ControlConfig:
     # High-level position control (camera-based)
-    POSITION_RATE: int = 10  # 10 Hz
+    POSITION_RATE: int = 10  # Hz
     POSITION_PERIOD: float = 1 / POSITION_RATE
-    POSITION_Kp: float = 0.5
-    POSITION_Ki: float = 0.1
-    POSITION_Kd: float = 0.1
-    POSITION_MAX_INTEGRAL: float = 1.0
+    POSITION_THRESHOLD_CM: float = 2.0
+    ANGLE_THRESHOLD_RAD: float = 0.05
+    MAX_SPEED_TICKS: int = 1000  # Maximum speed in ticks per 100ms
 
-    # Low-level odometry control (encoder-based)
-    ODOMETRY_RATE: int = 50  # 50 Hz
-    WHEEL_RADIUS: float = 6.9  # in cm
-    WHEEL_BASE: float = 6.9  # in cm
+    # Robot parameters
+    WHEEL_RADIUS_CM: float = 3.25
+    WHEEL_BASE_CM: float = 17.0
     TICKS_PER_ROTATION: int = 3800
-
-    # Speed limit
-    MAX_TICKS_PER_SEC = 1000
-
-    # Low-level motor velocity control (encoder-based)
-    MOTOR_RATE: int = 100  # 50 Hz
-    MOTOR_PERIOD: float = 1 / MOTOR_RATE
-    MOTOR_Kp: float = 0.8
-    MOTOR_Ki: float = 0.3
-    MOTOR_Kd: float = 0.1
-    MOTOR_MAX_INTEGRAL: float = 1.0
 
     # I2C Configuration
     I2C_BUS: int = 8
@@ -44,16 +45,21 @@ class ControlConfig:
     # Grid Configuration
     GRID_SIZE_X: float = 300  # centimeters
     GRID_SIZE_Y: float = 350  # centimeters
-    CASE_SIZE: float = 50  # centimeters
+    GRID_CASE_SIZE: float = 50  # centimeters
+
+    # Initial position information
+    INITIAL_X: int = 0
+    INITIAL_Y: int = 0
+    INITIAL_THETA: float = np.radians(0)
 
     @property
     def CM_PER_TICK(self) -> float:
-        wheel_circumference = 2 * np.pi * self.WHEEL_RADIUS
+        wheel_circumference = 2 * np.pi * self.WHEEL_RADIUS_CM
         return wheel_circumference / self.TICKS_PER_ROTATION
 
     @property
     def TICKS_PER_CM(self) -> float:
-        wheel_circumference = 2 * np.pi * self.WHEEL_RADIUS
+        wheel_circumference = 2 * np.pi * self.WHEEL_RADIUS_CM
         return self.TICKS_PER_ROTATION / wheel_circumference
 
 

@@ -3,9 +3,9 @@ import websockets
 import cv2
 import base64
 from typing import Dict, Callable, Optional
-from src.models.message import Message, MessageType
-from src.models.position import Position
-from src.communication.message_handler import MessageHandler
+from models.message import Message, MessageType
+from models.position import Position
+from communication.message_handler import MessageHandler
 from websockets.asyncio.client import ClientConnection
 import json
 

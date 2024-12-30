@@ -1,76 +1,178 @@
-from config import ControlConfig
-from src.controllers.motor_wrapper import MotorWrapper
-from src.controllers.pid_controller import VelocityPIDController
+from .pid_controller import PIDController
+from library_motor.controller import Controller
 import time
+from typing import Tuple
+from config import ControlConfig
 
 
-class MotorController:
-    """Motor controller implementing cascaded control with tick-based interface"""
+class MotorsController:
+    def __init__(self):
+        self.controller = Controller()
+        self.controller.set_motor_shutdown_timeout(5)
 
-    def __init__(self, config: ControlConfig, test_mode: bool = False):
-        self.config = config
-        self.motor_wrapper = MotorWrapper(config, test_mode)
-        self.target_ticks = (0, 0)  # Target ticks per second for each motor
+        # Constants for movement calculations
+        self.TICKS_PER_CM = 174.7  # encoder ticks per centimeter
+        self.TICKS_PER_RAD = 1543  # encoder ticks per radian
+        self.MAX_SPEED = 100
 
-        # Initialize velocity PID controllers with proper scaling
-        self.left_pid = VelocityPIDController(
-            kp=config.MOTOR_Kp / config.TICKS_PER_CM,  # Scale for ticks
-            ki=config.MOTOR_Ki / config.TICKS_PER_CM,
-            kd=config.MOTOR_Kd / config.TICKS_PER_CM,
-            max_integral=config.MOTOR_MAX_INTEGRAL * config.TICKS_PER_CM,
+    def standby(self):
+        """Stop all motors."""
+        self.controller.standby()
+
+    def move_uncontrolled(self, direction: str, speed):
+        """Basic movement without position control."""
+        speed = -speed
+
+        if direction == "forward":
+            self.controller.set_motor_speed(speed, speed)
+        elif direction == "backward":
+            self.controller.set_motor_speed(-speed, -speed)
+        elif direction == "right":
+            self.controller.set_motor_speed(speed, -speed)
+        elif direction == "left":
+            self.controller.set_motor_speed(-speed, speed)
+        elif direction == "stop":
+            self.standby()
+
+    def move_controlled(
+        self,
+        distance: float,
+        direction: int = 1,
+        speed: int = 50,
+        delta_time: int = 20,
+    ) -> Tuple[int, int]:
+        """Controlled movement with position feedback."""
+        if direction == 0:
+            return (0, 0)
+
+        if distance < 0.0:
+            distance = -distance
+            direction = -1
+
+        # Calculate target distance in encoder ticks
+        target_ticks = int(distance * self.TICKS_PER_CM)
+        remaining_left = remaining_right = target_ticks
+
+        # Setup PID controller
+        dt = delta_time * 0.001  # convert to seconds
+        # time_ratio = int(dt / 0.01)
+
+        pid = PIDController(
+            kp=1.0,
+            ki=0.1,
+            kd=0.05,
+            setpoint=0,
+            min_value=-100 + speed,  # -0.5 * speed * time_ratio,
+            max_value=100 - speed,  # 0.5 * speed * time_ratio,
         )
-        self.right_pid = VelocityPIDController(
-            kp=config.MOTOR_Kp / config.TICKS_PER_CM,
-            ki=config.MOTOR_Ki / config.TICKS_PER_CM,
-            kd=config.MOTOR_Kd / config.TICKS_PER_CM,
-            max_integral=config.MOTOR_MAX_INTEGRAL * config.TICKS_PER_CM,
+
+        correction = 0
+        speed_oriented = -direction * speed
+
+        # Clear encoder counts
+        self.controller.get_encoder_ticks()
+
+        while True:
+            overshoot_interval = 2 * (speed + abs(correction)) * int(dt / 0.01)
+
+            if (
+                remaining_left < overshoot_interval
+                or remaining_right < overshoot_interval
+            ):
+                speed //= 3
+                speed_oriented //= 3
+
+            if speed <= 2:
+                break
+
+            self.controller.set_motor_speed(
+                speed_oriented + correction, speed_oriented - correction
+            )
+
+            time.sleep(dt)
+
+            ticks = self.controller.get_encoder_ticks()
+
+            remaining_left -= -direction * ticks[0]
+
+            remaining_right -= -direction * ticks[1]
+
+            error = (remaining_left - remaining_right) * 0.01 / dt
+
+            correction = pid.compute(error, dt)
+
+        self.standby()
+
+        time.sleep(0.5)
+
+        return (remaining_left, remaining_right)
+
+    def turn_controlled(
+        self, angle: float, side: int = 1, speed: int = 20, delta_time: int = 20
+    ) -> Tuple[int, int]:
+        """Controlled rotation with position feedback."""
+        if side == 0:
+            return (0, 0)
+
+        if angle < 0:
+            side = -1
+            angle = -angle
+
+        # Calculate target angle in encoder ticks
+        target_ticks = int(angle * self.TICKS_PER_RAD)
+        remaining_left = remaining_right = target_ticks
+
+        # Setup PID controller
+        dt = delta_time * 0.001
+
+        pid = PIDController(
+            kp=1.0,
+            ki=0.1,
+            kd=0.05,
+            setpoint=0,
+            min_value=-100,
+            max_value=100,
         )
 
-        self.use_internal_pid = True
-        self.last_update_time = time.time()
+        correction = 0
+        speed_oriented = side * speed
 
-    def update_velocity_control(self) -> None:
-        """Update motor control using ticks per second"""
-        current_time = time.time()
-        dt = current_time - self.last_update_time
+        # Clear encoder counts
+        self.controller.get_encoder_ticks()
 
-        if dt < self.config.MOTOR_PERIOD:
-            return
+        while True:
+            overshoot_interval = 2 * (speed + abs(correction)) * int(dt / 0.01)
 
-        if self.use_internal_pid:
-            self.motor_wrapper.set_motor_ticks(*self.target_ticks)
-        else:
-            current_ticks = self.motor_wrapper.get_motor_ticks()
+            if (
+                remaining_left < overshoot_interval
+                or remaining_right < overshoot_interval
+            ):
+                speed //= 3
+                speed_oriented //= 3
 
-            # Compute PID output and convert to PWM
-            left_pwm = self.left_pid.compute(self.target_ticks[0], current_ticks[0], dt)
-            right_pwm = self.right_pid.compute(self.target_ticks[1], current_ticks[1])
+            if speed <= 2:
+                break
 
-            # Apply PWM limits
-            left_pwm = max(min(left_pwm, 1.0), -1.0)
-            right_pwm = max(min(right_pwm, 1.0), -1.0)
+            self.controller.set_motor_speed(
+                -speed_oriented + correction, speed_oriented + correction
+            )
 
-            self.motor_wrapper.set_motor_pwm(left_pwm, right_pwm)
+            time.sleep(dt)
 
-        self.last_update_time = current_time
+            ticks = self.controller.get_encoder_ticks()
 
-    def set_target_ticks(self, left_ticks: int, right_ticks: int) -> None:
-        """Set target velocities in ticks per second"""
-        # Apply speed limits
-        self.target_ticks = (
-            max(
-                min(left_ticks, self.config.MAX_TICKS_PER_SEC),
-                -self.config.MAX_TICKS_PER_SEC,
-            ),
-            max(
-                min(right_ticks, self.config.MAX_TICKS_PER_SEC),
-                -self.config.MAX_TICKS_PER_SEC,
-            ),
-        )
+            remaining_left -= -side * ticks[0]
 
-    def stop(self) -> None:
-        """Stop motors and reset controllers"""
-        self.target_ticks = (0, 0)
-        self.motor_wrapper.stop()
-        self.left_pid.reset()
-        self.right_pid.reset()
+            remaining_right -= side * ticks[1]
+
+            error = (remaining_left - remaining_right) * 0.01 / dt
+
+            correction = side * pid.compute(error, dt)
+
+        self.standby()
+        time.sleep(0.5)
+        return (remaining_left, remaining_right)
+
+    def get_speed(self) -> Tuple[int, int]:
+        """Get current motor speeds."""
+        return self.controller.get_motor_speed()

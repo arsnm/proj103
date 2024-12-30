@@ -2,10 +2,10 @@ import json
 import aiohttp
 import asyncio
 from typing import Dict, Callable, Optional, Tuple
-from src.models.message import Message, MessageType
-from src.models.race import TeamStatus, MarkerStatus, RaceStatus
-from src.config import TrackingServerConfig
-from src.controllers.race_controller import RaceController
+from models.message import Message, MessageType
+from models.race import TeamStatus, MarkerStatus, RaceStatus
+from config import TrackingServerConfig
+from controllers.race_controller import RaceController
 
 
 class TrackingServerManager:

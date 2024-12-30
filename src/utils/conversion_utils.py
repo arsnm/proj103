@@ -1,9 +1,10 @@
 from src.config import ControlConfig
+import numpy as np
 
 control_config = ControlConfig()
 grid_size_x = control_config.GRID_SIZE_X
 grid_size_y = control_config.GRID_SIZE_Y
-case_size = control_config.CASE_SIZE
+case_size = control_config.GRID_CASE_SIZE
 
 
 def match_coord_to_case(position):
@@ -53,6 +54,20 @@ def match_case_to_coord(case: str):
     # Calculate y coordinate (center of the case)
     # Remember: A is at the top, so we subtract from grid_size_y
     y = grid_size_y - (letter_index + 0.5) * case_size
-    y -= 50
 
     return (x, y)
+
+
+def parse_instructions(instructions: str):
+    list_instructions = instructions.split(",")
+    list_movements = []
+    for instruction in list_instructions:
+        movement_type = instruction[0]
+        movement_data = np.radians(
+            -int(instruction[1:])
+        )  # - for correct orientation convention
+        if movement_type == "r" or movement_type == "a":
+            list_movements.append((movement_type, movement_data))
+        else:
+            print(f"wrong instruction ({instruction}) sent")
+    return list_movements

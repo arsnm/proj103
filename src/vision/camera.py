@@ -24,8 +24,8 @@ class CameraManager:
             self.camera = cv2.VideoCapture(0)
             # Set camera properties if needed
             self.camera.set(cv2.CAP_PROP_FPS, self.config.CAMERA_FPS)
-            self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-            self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+            self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+            self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 800)
 
     def read_frame(self) -> Tuple[bool, Optional[cv2.Mat]]:
         """Read a frame from camera"""
@@ -54,7 +54,9 @@ class CameraManager:
             self.camera = None
 
     def take_picture(
-        self, directory: str = "pictures", filename: Optional[str] = None
+        self,
+        directory: str = "pictures/calibration_checkboard",
+        filename: Optional[str] = None,
     ) -> bool:
         """
         Capture a single frame and save it to the specified directory.
