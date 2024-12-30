@@ -1,0 +1,10 @@
+# macOS related
+.DS_Store
+
+# python related
+__pycache__
+.venv
+
+
+# temporary ignore
+*.npz
