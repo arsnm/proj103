@@ -309,4 +309,5 @@ if __name__ == "__main__":
 
     odo = OdometryController(0, -25, 0)
     motor_controller = MotorController(odo)
+    print("Starting executing instructions...")
     motor_controller.execute_instructions(args.instructions)
