@@ -206,6 +206,8 @@ class MotorController:
                 )
                 return
 
+            print(f"MOTOR - Moving {distance}m at speed {self.speed}")
+
             target_ticks = int(distance * RobotDimensions.TICKS_PER_ROT)
             direction = -1 if distance < 0 else 1
             self.pid = init_pid()
@@ -231,6 +233,8 @@ class MotorController:
                     f"TEST - Robot should turn controlled at speed {self.speed} for {angle * 180 / pi:.2f}deg"
                 )
                 return
+
+            print(f"MOTOR - Turning {angle} at speed {self.speed}")
 
             angle = angle % (2 * pi) - pi / 2
             target_ticks = int(angle * RobotDimensions.TICKS_PER_RAD)
@@ -305,4 +309,4 @@ if __name__ == "__main__":
 
     odo = OdometryController(0, -25, 0)
     motor_controller = MotorController(odo)
-    # motor_controller.execute_instructions(args.instructions)
+    motor_controller.execute_instructions(args.instructions)
