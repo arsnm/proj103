@@ -1,4 +1,4 @@
-from ..config import RobotDimensions
+from src.config import RobotDimensions
 from numpy import degrees, cos, sin, pi
 
 

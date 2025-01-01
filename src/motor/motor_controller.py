@@ -1,8 +1,8 @@
 #!/usr/bin/python3
 
-from ..utils.pid_controller import PIDController
-from ..config import PIDConfig, SpeedConfig, RobotDimensions, RateConfig
-from odometry_controller import OdometryController
+from src.utils.pid_controller import PIDController
+from src.config import PIDConfig, SpeedConfig, RobotDimensions, RateConfig
+from .odometry_controller import OdometryController
 import time as t
 import threading, queue, argparse
 from numpy import pi
@@ -31,7 +31,7 @@ class MotorController:
         self.update_frequency = RateConfig.MOTOR_FREQUENCY
 
         if not test_mode:
-            from libMotors import controller as c
+            from .libMotors import controller as c
 
             self.controller = c.Controller()
             self.controller.set_motor_shutdown_timeout(5)
@@ -305,4 +305,4 @@ if __name__ == "__main__":
 
     odo = OdometryController(0, -25, 0)
     motor_controller = MotorController(odo)
-    motor_controller.execute_instructions(args.instructions)
+    # motor_controller.execute_instructions(args.instructions)
