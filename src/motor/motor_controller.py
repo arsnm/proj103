@@ -69,10 +69,7 @@ class MotorController:
                 # log
                 print("Processing command...")
                 command(*args)
-                self.command_queue.task_done()
-            else:
-                self.command_queue.task_done()
-                break
+            self.command_queue.task_done()
         # log
         print("Exiting _command_processor...")
 
@@ -149,12 +146,12 @@ class MotorController:
 
         print("Updating controlled movements...")
         dt = 1 / self.update_frequency
-        next_update = t.time() + dt
         correction = 0
         odometry_rate = 1 / RateConfig.ODOMETRY_FREQUENCY
         next_odometry_update = t.time() + odometry_rate
-
         remaining_left, remaining_right = target_ticks
+
+        next_update = t.time() + dt
 
         while not self.stop_event.is_set() and not self.terminate_event.is_set():
 
@@ -210,9 +207,9 @@ class MotorController:
                 next_odometry_update += odometry_rate
 
             if type:
-                error = remaining_left - remaining_right
+                error = (remaining_left - remaining_right) * 0.01 / dt
             else:
-                error = remaining_left + remaining_right
+                error = (remaining_left + remaining_right) * 0.01 / dt
             print(f"Error: {error}")
 
             try:
