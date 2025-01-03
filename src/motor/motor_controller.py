@@ -159,15 +159,14 @@ class MotorController:
             remaining_left, remaining_right = target_ticks
 
             # log
-            print(overshoot_interval, remaining_left, remaining_right)
+            print(
+                f"update_control : {overshoot_interval}, {remaining_left}, {remaining_right}"
+            )
 
             while (
                 abs(remaining_left) < overshoot_interval
                 or abs(remaining_right) < overshoot_interval
             ):
-                print(
-                    f"update_controle : {overshoot_interval}, {remaining_left}, {remaining_right}"
-                )
                 self.speed //= 3
                 overshoot_interval = int(2 * 100 * dt * self.speed)
             if self.speed <= 2:
@@ -188,18 +187,21 @@ class MotorController:
             next_update = t.time() + dt
 
             ticks = self.controller.get_encoder_ticks()
+            print(f"ticks:{ticks}")
+
+            remaining_left -= ticks[0]
+            remaining_right -= ticks[1]
 
             self.odometry_ticks = (
                 self.odometry_ticks[0] + ticks[0],
                 self.odometry_ticks[1] + ticks[1],
             )
             if t.time() > next_odometry_update:
+                # log
+                print("Updating odometry...")
                 self.odometry.update_position_from_ticks(*self.odometry_ticks)
                 self.odometry_ticks = (0, 0)
                 next_odometry_update += odometry_rate
-
-            remaining_left -= ticks[0]
-            remaining_right -= ticks[1]
 
             if type:
                 error = (remaining_left - remaining_right) * 0.01 / dt
@@ -210,6 +212,7 @@ class MotorController:
                 if self.pid is not None:  # should always be true
                     correction = self.pid.compute(error, dt)
                 else:
+                    self.controller.standby()
                     raise ValueError("PID was not correctly initialized")
             except ValueError as e:
                 print(f"ERROR - {e}")
