@@ -8,6 +8,8 @@ import threading, queue, argparse
 from numpy import pi
 import web_pdb
 
+web_pdb.set_trace(host="0.0.0.0", port=8080)
+
 
 def init_pid(target: int = 0):
     k_p = PIDConfig.K_P
@@ -56,7 +58,6 @@ class MotorController:
         print("Started _command_processor...")
         while True:
             command = self.command_queue.get()
-            web_pdb.set_trace(host="0.0.0.0", port=8080)
             if self.terminate_event.is_set():
                 # log
                 print("Terminate event is set, finishing...")
