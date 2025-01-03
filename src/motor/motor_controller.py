@@ -13,13 +13,11 @@ from numpy import pi
 # web_pdb.set_trace(host="0.0.0.0", port=8080)
 
 
-def init_pid(target: int = 0):
+def init_pid(target: int = 0, min=SpeedConfig.MIN_SPEED, max=SpeedConfig.MAX_SPEED):
     k_p = PIDConfig.K_P
     k_i = PIDConfig.K_I
     k_d = PIDConfig.K_D
-    return PIDController(
-        k_p, k_i, k_d, target, SpeedConfig.MIN_SPEED, SpeedConfig.MAX_SPEED
-    )
+    return PIDController(target, min, max, k_p, k_i, k_d)
 
 
 class MotorController:
@@ -60,16 +58,21 @@ class MotorController:
         # log
         print("Started _command_processor...")
         while True:
-            command, args = self.command_queue.get()
-            if self.terminate_event.is_set():
+            item = self.command_queue.get()
+            if item is not None:
+                command, args = self.command_queue.get()
+                if self.terminate_event.is_set():
+                    # log
+                    print("Terminate event is set, finishing...")
+                    self.command_queue.task_done()
+                    break
                 # log
-                print("Terminate event is set, finishing...")
+                print("Processing command...")
+                command(*args)
+                self.command_queue.task_done()
+            else:
                 self.command_queue.task_done()
                 break
-            # log
-            print("Processing command...")
-            command(*args)
-            self.command_queue.task_done()
         # log
         print("Exiting _command_processor...")
 
@@ -157,10 +160,13 @@ class MotorController:
 
             # NOTE: time between two updates must be higher than the time it takes to compute PID
 
-            overshoot_interval = int(2 * 100 * dt * self.speed)  # speed in ticks/0.01s
+            overshoot_interval = int(
+                2 * 100 * dt * (self.speed + abs(correction))
+            )  # speed in ticks/0.01s
+
             # log
             print(
-                f"update_control : {overshoot_interval}, {remaining_left}, {remaining_right}, {correction}"
+                f"update_control at {t.time()} : {overshoot_interval}, {remaining_left}, {remaining_right}, {correction}"
             )
 
             while (
@@ -168,7 +174,7 @@ class MotorController:
                 or abs(remaining_right) < overshoot_interval
             ):
                 self.speed //= 3
-                overshoot_interval = int(2 * 100 * dt * self.speed)
+                overshoot_interval = int(2 * 100 * dt * (self.speed + abs(correction)))
             if self.speed <= 2:
                 self.stop_event.set()
                 break
@@ -204,9 +210,9 @@ class MotorController:
                 next_odometry_update += odometry_rate
 
             if type:
-                error = (remaining_left - remaining_right) * 0.01 / dt
+                error = remaining_left - remaining_right
             else:
-                error = (remaining_left + remaining_right) * 0.01 / dt
+                error = remaining_left + remaining_right
             print(f"Error: {error}")
 
             try:
@@ -241,7 +247,11 @@ class MotorController:
 
             target_ticks = int(distance * RobotDimensions.TICKS_PER_ROT)
             direction = -1 if distance < 0 else 1
-            self.pid = init_pid()
+            self.pid = init_pid(
+                0,
+                -SpeedConfig.MAX_SPEED + self.speed,
+                SpeedConfig.MAX_SPEED - self.speed,
+            )
             self._run_update_controlled((target_ticks, target_ticks), direction, True)
 
         if no_wait:
@@ -272,7 +282,11 @@ class MotorController:
             angle = angle % (2 * pi) - pi / 2
             target_ticks = int(angle * RobotDimensions.TICKS_PER_RAD)
             direction = -1 if angle < 0 else 1
-            self.pid = init_pid()
+            self.pid = init_pid(
+                0,
+                -SpeedConfig.MAX_SPEED + self.speed,
+                SpeedConfig.MAX_SPEED - self.speed,
+            )
             self._run_update_controlled((target_ticks, -target_ticks), direction, False)
 
         if no_wait:

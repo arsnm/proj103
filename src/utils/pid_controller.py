@@ -3,12 +3,12 @@ from dataclasses import dataclass
 
 @dataclass
 class PIDController:
-    kp: float
-    ki: float
-    kd: float
     setpoint: float
     min_value: float
     max_value: float
+    kp: float
+    ki: float
+    kd: float
 
     def __post_init__(self):
         self.previous_error = 0.0
