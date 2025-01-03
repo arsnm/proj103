@@ -14,6 +14,9 @@ def main(stdscr):
     stdscr.addstr(0, 0, "Use W, A, S, D to control the robot. Press Q to quit.")
     stdscr.refresh()
 
+    # Set timeout for getch() to 100ms
+    stdscr.timeout(100)
+
     while True:
         key = stdscr.getch()
 
@@ -35,19 +38,18 @@ def main(stdscr):
             if 'd' not in pressed_keys:
                 pressed_keys.add('d')
                 motor_controller.move_uncontrolled("right")
-        elif key == curses.KEY_UP:
+
+        # Check for key releases
+        if key == -1:
             if 'w' in pressed_keys:
                 pressed_keys.remove('w')
                 motor_controller.move_uncontrolled("stop")
-        elif key == curses.KEY_DOWN:
             if 's' in pressed_keys:
                 pressed_keys.remove('s')
                 motor_controller.move_uncontrolled("stop")
-        elif key == curses.KEY_LEFT:
             if 'a' in pressed_keys:
                 pressed_keys.remove('a')
                 motor_controller.move_uncontrolled("stop")
-        elif key == curses.KEY_RIGHT:
             if 'd' in pressed_keys:
                 pressed_keys.remove('d')
                 motor_controller.move_uncontrolled("stop")
