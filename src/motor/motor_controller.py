@@ -36,6 +36,8 @@ class MotorController:
         # log
         print("Should start worker_thread just after...")
         self.worker_thread.start()
+        # log
+        print("Did it even started ?!!")
         self.stop_event = threading.Event()
         self.terminate_event = threading.Event()
         self.action_lock = threading.Lock()
@@ -48,6 +50,8 @@ class MotorController:
             self.controller.get_encoder_ticks()  # to init the ticks counter
 
     def _command_processor(self):
+        # log
+        print("Started _command_processor...")
         while True:
             command = self.command_queue.get()
             if self.terminate_event.is_set():
