@@ -37,6 +37,7 @@ class MotorController:
         print("Should start worker_thread just after...")
         self.worker_thread.start()
         # log
+        t.sleep(3)
         print("Did it even started ?!!")
         self.stop_event = threading.Event()
         self.terminate_event = threading.Event()
@@ -55,6 +56,8 @@ class MotorController:
         while True:
             command = self.command_queue.get()
             if self.terminate_event.is_set():
+                # log
+                print("Terminate event is set, finishing...")
                 self.command_queue.task_done()
                 break
             # log
@@ -125,9 +128,9 @@ class MotorController:
         elif direction == "backward":
             self.controller.set_raw_motor_speed(-speed, -speed)
         elif direction == "right":
-            self.controller.set_raw_motor_speed(speed, -speed)
-        elif direction == "left":
             self.controller.set_raw_motor_speed(-speed, speed)
+        elif direction == "left":
+            self.controller.set_raw_motor_speed(speed, -speed)
         elif direction == "stop":
             self.controller.set_raw_motor_speed(0, 0)
 
