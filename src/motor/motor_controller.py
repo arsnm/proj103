@@ -33,6 +33,8 @@ class MotorController:
         self.worker_thread = threading.Thread(
             target=self._command_processor, daemon=True
         )
+        # log
+        print("Should start worker_thread just after...")
         self.worker_thread.start()
         self.stop_event = threading.Event()
         self.terminate_event = threading.Event()
