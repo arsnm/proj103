@@ -151,16 +151,16 @@ class MotorController:
         odometry_rate = 1 / RateConfig.ODOMETRY_FREQUENCY
         next_odometry_update = t.time() + odometry_rate
 
+        remaining_left, remaining_right = target_ticks
+
         while not self.stop_event.is_set() and not self.terminate_event.is_set():
 
             # NOTE: time between two updates must be higher than the time it takes to compute PID
 
             overshoot_interval = int(2 * 100 * dt * self.speed)  # speed in ticks/0.01s
-            remaining_left, remaining_right = target_ticks
-
             # log
             print(
-                f"update_control : {overshoot_interval}, {remaining_left}, {remaining_right}"
+                f"update_control : {overshoot_interval}, {remaining_left}, {remaining_right}, {correction}"
             )
 
             while (
