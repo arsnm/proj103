@@ -6,9 +6,11 @@ from .odometry_controller import OdometryController
 import time as t
 import threading, queue, argparse
 from numpy import pi
-import web_pdb
 
-web_pdb.set_trace(host="0.0.0.0", port=8080)
+# import web_pdb
+
+# debug
+# web_pdb.set_trace(host="0.0.0.0", port=8080)
 
 
 def init_pid(target: int = 0):
@@ -54,7 +56,7 @@ class MotorController:
             self.controller.get_encoder_ticks()  # to init the ticks counter
 
     def _command_processor(self):
-        web_pdb.set_trace()
+        # web_pdb.set_trace()
         # log
         print("Started _command_processor...")
         while True:
@@ -336,7 +338,7 @@ if __name__ == "__main__":
     # args = parser.parse_args()
 
     odo = OdometryController(0, -25, 0)
-    motor_controller = MotorController(odo, True)
+    motor_controller = MotorController(odo)
     print("Starting executing instructions...")
     instr = "r10"
     # log
