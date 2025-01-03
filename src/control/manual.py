@@ -1,50 +1,56 @@
-from pynput import keyboard
+import curses
 from src.motor.motor_controller import MotorController
 from src.motor.odometry_controller import OdometryController
 
+def main(stdscr):
+    # Clear screen
+    stdscr.clear()
 
-if __name__ == "__main__":
     odo = OdometryController(0, 0, 0)
     motor_controller = MotorController(odo)
-    # Keep track of the currently pressed keys
     pressed_keys = set()
 
-    # Callback function when a key is pressed
-    def on_press(key):
-        try:
-            if key.char == "w" and "w" not in pressed_keys:
-                pressed_keys.add("w")
+    # Instructions for the user
+    stdscr.addstr(0, 0, "Use W, A, S, D to control the robot. Press Q to quit.")
+    stdscr.refresh()
+
+    while True:
+        key = stdscr.getch()
+
+        if key == ord('q'):
+            break
+        elif key == ord('w'):
+            if 'w' not in pressed_keys:
+                pressed_keys.add('w')
                 motor_controller.move_uncontrolled("forward")
-            elif key.char == "s" and "s" not in pressed_keys:
-                pressed_keys.add("s")
+        elif key == ord('s'):
+            if 's' not in pressed_keys:
+                pressed_keys.add('s')
                 motor_controller.move_uncontrolled("backward")
-            elif key.char == "a" and "a" not in pressed_keys:
-                pressed_keys.add("a")
+        elif key == ord('a'):
+            if 'a' not in pressed_keys:
+                pressed_keys.add('a')
                 motor_controller.move_uncontrolled("left")
-            elif key.char == "d" and "d" not in pressed_keys:
-                pressed_keys.add("d")
+        elif key == ord('d'):
+            if 'd' not in pressed_keys:
+                pressed_keys.add('d')
                 motor_controller.move_uncontrolled("right")
-        except AttributeError:
-            pass
+        elif key == curses.KEY_UP:
+            if 'w' in pressed_keys:
+                pressed_keys.remove('w')
+                motor_controller.move_uncontrolled("stop")
+        elif key == curses.KEY_DOWN:
+            if 's' in pressed_keys:
+                pressed_keys.remove('s')
+                motor_controller.move_uncontrolled("stop")
+        elif key == curses.KEY_LEFT:
+            if 'a' in pressed_keys:
+                pressed_keys.remove('a')
+                motor_controller.move_uncontrolled("stop")
+        elif key == curses.KEY_RIGHT:
+            if 'd' in pressed_keys:
+                pressed_keys.remove('d')
+                motor_controller.move_uncontrolled("stop")
 
-    # Callback function when a key is released
-    def on_release(key):
-        try:
-            if key.char == "w" and "w" in pressed_keys:
-                pressed_keys.remove("w")
-                motor_controller.move_uncontrolled("stop")
-            elif key.char == "s" and "s" in pressed_keys:
-                pressed_keys.remove("s")
-                motor_controller.move_uncontrolled("stop")
-            elif key.char == "a" and "a" in pressed_keys:
-                pressed_keys.remove("a")
-                motor_controller.move_uncontrolled("stop")
-            elif key.char == "d" and "d" in pressed_keys:
-                pressed_keys.remove("d")
-                motor_controller.move_uncontrolled("stop")
-        except AttributeError:
-            pass
-
-    # Set up the listener for keyboard events
-    with keyboard.Listener(on_press=on_press, on_release=on_release) as listener:
-        listener.join()
+if __name__ == "__main__":
+    curses.wrapper(main)
