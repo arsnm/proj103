@@ -52,10 +52,14 @@ class MotorController:
             if self.terminate_event.is_set():
                 self.command_queue.task_done()
                 break
+            # log
+            print("Processing command...")
             command()
             self.command_queue.task_done()
 
     def _run_update_controlled(self, target_ticks, direction, type):
+        # log
+        print("Starting update thread...")
         update_thread = threading.Thread(
             target=self.update_controlled, args=(target_ticks, direction, type)
         )
@@ -124,6 +128,7 @@ class MotorController:
         # type == True -> move
         # type == False --> turn
 
+        print("Updating controlled movements...")
         dt = 1 / self.update_frequency
         next_update = t.time() + dt
         correction = 0
@@ -278,6 +283,8 @@ class MotorController:
     def execute_instructions(self, instructions):
         """Translate a list of instructions into movement executions."""
         instruction_list = instructions.split(",")
+        # log
+        print(instruction_list)
         for instruction in instruction_list:
             instruction = instruction.strip()
             if instruction.startswith("a"):
@@ -313,4 +320,5 @@ if __name__ == "__main__":
     odo = OdometryController(0, -25, 0)
     motor_controller = MotorController(odo)
     print("Starting executing instructions...")
+    print("Executing the following instructions: ", args.instructions)
     motor_controller.execute_instructions(args.instructions)
