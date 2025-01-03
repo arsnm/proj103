@@ -13,7 +13,7 @@ from numpy import pi
 # web_pdb.set_trace(host="0.0.0.0", port=8080)
 
 
-def init_pid(target: int = 0, min=SpeedConfig.MIN_SPEED, max=SpeedConfig.MAX_SPEED):
+def init_pid(target: int = 0, min=-SpeedConfig.MAX_SPEED, max=SpeedConfig.MAX_SPEED):
     k_p = PIDConfig.K_P
     k_i = PIDConfig.K_I
     k_d = PIDConfig.K_D
