@@ -60,7 +60,7 @@ class MotorController:
         # log
         print("Started _command_processor...")
         while True:
-            command = self.command_queue.get()
+            command, args = self.command_queue.get()
             if self.terminate_event.is_set():
                 # log
                 print("Terminate event is set, finishing...")
@@ -68,7 +68,7 @@ class MotorController:
                 break
             # log
             print("Processing command...")
-            command()
+            command(*args)
             self.command_queue.task_done()
         # log
         print("Exiting _command_processor...")
@@ -221,7 +221,7 @@ class MotorController:
     def move_controlled(self, distance, speed=None, no_wait=False):
         """Controlled movement with motor ticks feedback (PID)"""
 
-        def command():
+        def command(distance, speed):
             if speed is not None:
                 self.update_speed(speed)
             else:
@@ -241,16 +241,16 @@ class MotorController:
             self._run_update_controlled((target_ticks, target_ticks), direction, True)
 
         if no_wait:
-            self.add_command_to_front(command)
+            self.add_command_to_front((command, (distance, speed)))
         else:
             # log
             print("Adding moving command to queue...")
-            self.command_queue.put(command)
+            self.command_queue.put((command, (distance, speed)))
 
     def turn_controlled(self, angle, speed=None, no_wait=False):
         """Controlled turn with motor ticks feedback (PID)"""
 
-        def command():
+        def command(angle, speed):
             if speed is not None:
                 self.update_speed(speed)
             else:
@@ -272,9 +272,9 @@ class MotorController:
             self._run_update_controlled((target_ticks, -target_ticks), direction, False)
 
         if no_wait:
-            self.add_command_to_front(command)
+            self.add_command_to_front((command, (angle, speed)))
         else:
-            self.command_queue.put(command)
+            self.command_queue.put((command, (angle, speed)))
 
     def delay_controlled(self, delay):
         """Add a delay between movements."""
@@ -340,6 +340,7 @@ class MotorController:
     def shutdown(self):
         """Gracefully stop the worker thread and wait for it to finish."""
         print("Shutting down worker thread...")
+        self.command_queue.join()
         self.terminate_event.set()
         self.command_queue.put(lambda: None)  # Ensure the queue isn't blocking
         self.worker_thread.join()  # Wait for the thread to finish
