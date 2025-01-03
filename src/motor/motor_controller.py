@@ -51,8 +51,7 @@ class MotorController:
     def _command_processor(self):
         while True:
             item = self.command_queue.get()
-            print(f"item in queue: {item}")
-            if item is not None:
+            if item != ():
                 command, args = item
                 if self.terminate_event.is_set():
                     print("Terminate event is set, finishing...")
@@ -336,7 +335,7 @@ class MotorController:
         print("Shutting down worker thread...")
         self.command_queue.join()
         self.terminate_event.set()
-        self.command_queue.put(lambda: None)  # Ensure the queue isn't blocking
+        self.command_queue.put(())  # Ensure the queue isn't blocking
         self.worker_thread.join()  # Wait for the thread to finish
         print("Worker thread shut down successfully.")
 

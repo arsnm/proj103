@@ -37,9 +37,9 @@ class RateConfig:
 
 
 class PIDConfig:
-    K_P = 0.5
-    K_I = 0.5
-    K_D = 0.5
+    K_P = 1.0
+    K_I = 0.1
+    K_D = 0.05
 
 
 class CalibrationConfig:
