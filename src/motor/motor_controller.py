@@ -6,6 +6,7 @@ from .odometry_controller import OdometryController
 import time as t
 import threading, queue, argparse
 from numpy import pi
+import debugpy
 
 
 def init_pid(target: int = 0):
@@ -327,6 +328,12 @@ class MotorController:
 
 
 if __name__ == "__main__":
+    debugpy.listen(("0.0.0.0", 5678))  # Allow connections from any host
+    print("Debugger is listening on port 5678...")
+
+    # Optional: Wait for a debugger to attach before proceeding
+    debugpy.wait_for_client()
+    print("Debugger attached. Continuing execution...")
     # parser.add_argument("-i", "--instructions", type=str, help="Instruction string to execute")
     # parser = argparse.ArgumentParser(description="Motor Controller CLI")
     # args = parser.parse_args()
