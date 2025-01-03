@@ -36,12 +36,7 @@ class MotorController:
         self.worker_thread = threading.Thread(
             target=self._command_processor, daemon=True
         )
-        # log
-        print("Should start worker_thread just after...")
         self.worker_thread.start()
-        # log
-        t.sleep(3)
-        print("Did it even started ?!!")
         self.stop_event = threading.Event()
         self.terminate_event = threading.Event()
         self.action_lock = threading.Lock()
@@ -54,28 +49,19 @@ class MotorController:
             self.controller.get_encoder_ticks()  # to init the ticks counter
 
     def _command_processor(self):
-        # web_pdb.set_trace()
-        # log
-        print("Started _command_processor...")
         while True:
             item = self.command_queue.get()
+            print(f"item in queue: {item}")
             if item is not None:
                 command, args = item
                 if self.terminate_event.is_set():
-                    # log
                     print("Terminate event is set, finishing...")
                     self.command_queue.task_done()
                     break
-                # log
-                print("Processing command...")
                 command(*args)
             self.command_queue.task_done()
-        # log
-        print("Exiting _command_processor...")
 
     def _run_update_controlled(self, target_ticks, direction, type):
-        # log
-        print("Starting update thread...")
         update_thread = threading.Thread(
             target=self.update_controlled, args=(target_ticks, direction, type)
         )
@@ -93,7 +79,7 @@ class MotorController:
                     f"Raw speed should be a positive int between {SpeedConfig.MIN_RAW_SPEED} and {SpeedConfig.MAX_RAW_SPEED}, -{speed}- was provided"
                 )
             else:
-                self.raw_speeds = speed
+                self.raw_speed = speed
         except ValueError as e:
             print(f"ERROR - {e}")
         return
@@ -178,6 +164,9 @@ class MotorController:
 
             speed_oriented = -direction * self.speed
             if type:
+                print(
+                    f"set speed : {speed_oriented + correction}, {speed_oriented - correction}"
+                )
                 self.controller.set_motor_speed(
                     speed_oriented + correction, speed_oriented - correction
                 )
@@ -200,8 +189,6 @@ class MotorController:
                 self.odometry_ticks[1] + ticks[1],
             )
             if t.time() > next_odometry_update:
-                # log
-                print("Updating odometry...")
                 self.odometry.update_position_from_ticks(*self.odometry_ticks)
                 self.odometry_ticks = (0, 0)
                 next_odometry_update += odometry_rate
@@ -244,12 +231,6 @@ class MotorController:
 
             target_ticks = int(distance * RobotDimensions.TICKS_PER_ROT)
             direction = -1 if distance < 0 else 1
-            print("current speed: ", self.speed)
-            print(
-                "PID wanted min/max",
-                -SpeedConfig.MAX_SPEED + self.speed,
-                SpeedConfig.MAX_SPEED - self.speed,
-            )
             self.pid = init_pid(
                 0,
                 -SpeedConfig.MAX_SPEED + self.speed,
@@ -260,8 +241,6 @@ class MotorController:
         if no_wait:
             self.add_command_to_front((command, (distance, speed)))
         else:
-            # log
-            print("Adding moving command to queue...")
             self.command_queue.put((command, (distance, speed)))
 
     def turn_controlled(self, angle, speed=None, no_wait=False):
@@ -327,22 +306,17 @@ class MotorController:
     def execute_instructions(self, instructions):
         """Translate a list of instructions into movement executions."""
         instruction_list = instructions.split(",")
-        # log
-        print(instruction_list)
         for instruction in instruction_list:
             instruction = instruction.strip()
             if instruction.startswith("a"):
                 try:
                     angle = float(instruction[1:])
                     self.turn_controlled_deg(angle)
-                    print("Queued turning instruction...")
                 except ValueError:
                     print(f"Invalid angle value in instruction: {instruction}")
             elif instruction.startswith("r"):
                 try:
                     distance = float(instruction[1:])
-                    # log
-                    print("Queuing moveing instaurction of ", distance, "cm")
                     self.move_uncontrolled_centimeters(distance)
                 except ValueError:
                     print(f"Invalid distance value in instruction: {instruction}")
