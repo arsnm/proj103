@@ -36,8 +36,8 @@ class MotorController:
             self.controller = c.Controller()
             self.controller.set_motor_shutdown_timeout(5)
             self.controller.get_encoder_ticks()  # to init the ticks counter
-            self.command_queue = queue.Queue()
 
+        self.command_queue = queue.Queue()
         self.worker_thread = threading.Thread(
             target=self._command_processor, daemon=True
         )
@@ -284,6 +284,7 @@ class MotorController:
                 try:
                     angle = float(instruction[1:])
                     self.turn_controlled_deg(angle)
+                    print("Queued turning instruction...")
                 except ValueError:
                     print(f"Invalid angle value in instruction: {instruction}")
             elif instruction.startswith("r"):
@@ -292,10 +293,12 @@ class MotorController:
                     self.move_uncontrolled_centimeters(distance)
                 except ValueError:
                     print(f"Invalid distance value in instruction: {instruction}")
+                    print("Queued moving instruction...")
             elif instruction.startswith("d"):
                 try:
                     delay = float(instruction[1:])
                     self.delay_controlled(delay)
+                    print("Queued delay instruction...")
                 except ValueError:
                     print(f"Invalid delay value in instruction: {instruction}")
             else:
