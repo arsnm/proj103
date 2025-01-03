@@ -13,6 +13,7 @@ class PIDController:
     def __post_init__(self):
         self.previous_error = 0.0
         self.integral = 0.0
+        print(f"PID min/max {self.min_value}, {self.max_value}")
 
     def compute(self, current_value: float, delta_time: float) -> float:
         error = self.setpoint - current_value
