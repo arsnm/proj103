@@ -60,7 +60,7 @@ class MotorController:
         while True:
             item = self.command_queue.get()
             if item is not None:
-                command, args = self.command_queue.get()
+                command, args = item
                 if self.terminate_event.is_set():
                     # log
                     print("Terminate event is set, finishing...")
