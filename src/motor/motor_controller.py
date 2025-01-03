@@ -29,14 +29,6 @@ class MotorController:
         self.pid = None
         self.error = (0, 0)
         self.update_frequency = RateConfig.MOTOR_FREQUENCY
-
-        if not test_mode:
-            from .libMotors import controller as c
-
-            self.controller = c.Controller()
-            self.controller.set_motor_shutdown_timeout(5)
-            self.controller.get_encoder_ticks()  # to init the ticks counter
-
         self.command_queue = queue.Queue()
         self.worker_thread = threading.Thread(
             target=self._command_processor, daemon=True
@@ -45,6 +37,13 @@ class MotorController:
         self.stop_event = threading.Event()
         self.terminate_event = threading.Event()
         self.action_lock = threading.Lock()
+
+        if not test_mode:
+            from .libMotors import controller as c
+
+            self.controller = c.Controller()
+            self.controller.set_motor_shutdown_timeout(5)
+            self.controller.get_encoder_ticks()  # to init the ticks counter
 
     def _command_processor(self):
         while True:
@@ -297,6 +296,8 @@ class MotorController:
             elif instruction.startswith("r"):
                 try:
                     distance = float(instruction[1:])
+                    # log
+                    print("Queuing moveing instaurction of ", distance, "cm")
                     self.move_uncontrolled_centimeters(distance)
                 except ValueError:
                     print(f"Invalid distance value in instruction: {instruction}")
