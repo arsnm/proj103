@@ -207,6 +207,7 @@ class MotorController:
                 error = (remaining_left - remaining_right) * 0.01 / dt
             else:
                 error = (remaining_left + remaining_right) * 0.01 / dt
+            print(f"Error: {error}")
 
             try:
                 if self.pid is not None:  # should always be true
