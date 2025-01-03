@@ -54,6 +54,7 @@ class MotorController:
             self.controller.get_encoder_ticks()  # to init the ticks counter
 
     def _command_processor(self):
+        web_pdb.set_trace()
         # log
         print("Started _command_processor...")
         while True:
