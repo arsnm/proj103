@@ -28,7 +28,7 @@ class MotorController:
         self.odometry = odometry_controller
         self.odometry_ticks = (0, 0)
         self.raw_speed: int = 50
-        self.speed: int = 50
+        self.speed: int = 0
         self.pid = None
         self.error = (0, 0)
         self.update_frequency = RateConfig.MOTOR_FREQUENCY
@@ -109,7 +109,7 @@ class MotorController:
                     f"Speed should be a positive int between {SpeedConfig.MIN_SPEED} and {SpeedConfig.MAX_SPEED}, -{speed}- was provided"
                 )
             else:
-                self.speeds = speed
+                self.speed = speed
         except ValueError as e:
             print(f"ERROR - {e}")
         return
