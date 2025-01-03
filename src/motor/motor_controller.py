@@ -244,6 +244,7 @@ class MotorController:
 
             target_ticks = int(distance * RobotDimensions.TICKS_PER_ROT)
             direction = -1 if distance < 0 else 1
+            print("current speed: ", self.speed)
             print(
                 "PID wanted min/max",
                 -SpeedConfig.MAX_SPEED + self.speed,
@@ -270,7 +271,7 @@ class MotorController:
             if speed is not None:
                 self.update_speed(speed)
             else:
-                self.update_speed(SpeedConfig.DEFAULT_MOVING_SPEED)
+                self.update_speed(SpeedConfig.DEFAULT_ROTATING_SPEED)
 
             if self.test_mode:
                 print(
