@@ -158,10 +158,16 @@ class MotorController:
             overshoot_interval = int(2 * 100 * dt * self.speed)  # speed in ticks/0.01s
             remaining_left, remaining_right = target_ticks
 
+            # log
+            print(overshoot_interval, remaining_left, remaining_right)
+
             while (
                 abs(remaining_left) < overshoot_interval
                 or abs(remaining_right) < overshoot_interval
             ):
+                print(
+                    f"update_controle : {overshoot_interval}, {remaining_left}, {remaining_right}"
+                )
                 self.speed //= 3
                 overshoot_interval = int(2 * 100 * dt * self.speed)
             if self.speed <= 2:
@@ -331,6 +337,14 @@ class MotorController:
             else:
                 print(f"Unknown instruction: {instruction}")
 
+    def shutdown(self):
+        """Gracefully stop the worker thread and wait for it to finish."""
+        print("Shutting down worker thread...")
+        self.terminate_event.set()
+        self.command_queue.put(lambda: None)  # Ensure the queue isn't blocking
+        self.worker_thread.join()  # Wait for the thread to finish
+        print("Worker thread shut down successfully.")
+
 
 if __name__ == "__main__":
     # parser.add_argument("-i", "--instructions", type=str, help="Instruction string to execute")
@@ -344,3 +358,4 @@ if __name__ == "__main__":
     # log
     print("Executing the following instructions: ", instr)
     motor_controller.execute_instructions(instr)
+    motor_controller.shutdown()
