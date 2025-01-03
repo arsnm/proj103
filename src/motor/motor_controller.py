@@ -61,6 +61,8 @@ class MotorController:
             print("Processing command...")
             command()
             self.command_queue.task_done()
+        # log
+        print("Exiting _command_processor...")
 
     def _run_update_controlled(self, target_ticks, direction, type):
         # log
@@ -226,6 +228,8 @@ class MotorController:
         if no_wait:
             self.add_command_to_front(command)
         else:
+            # log
+            print("Adding moving command to queue...")
             self.command_queue.put(command)
 
     def turn_controlled(self, angle, speed=None, no_wait=False):
