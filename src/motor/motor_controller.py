@@ -541,9 +541,9 @@ class MotorController:
     def shutdown(self):
         """Gracefully stop the worker thread and wait for it to finish."""
         print("Shutting down worker thread...")
-        self.command_queue.put(())  # Ensure the queue isn't blocking
         self.command_queue.join()
         self.terminate_all_event.set()
+        self.command_queue.put(())  # Ensure the queue isn't blocking
         self.worker_thread.join()  # Wait for the thread to finish
         print("Worker thread shut down successfully.")
 
