@@ -18,7 +18,7 @@ class RobotDimensions:
     WHEEL_RADIUS = 0.033  # radius, in meters, of a wheel
     TICKS_PER_ROT = 3800  # ticks for one full rotation of the wheel
     TICKS_PER_METER = TICKS_PER_ROT / (2 * pi * WHEEL_RADIUS)
-    TICKS_PER_RAD = TICKS_PER_METER * WHEEL_BASE / 4
+    TICKS_PER_RAD = TICKS_PER_METER * WHEEL_BASE / 2
 
 
 class SpeedConfig:
