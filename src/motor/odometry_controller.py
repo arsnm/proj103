@@ -1,6 +1,8 @@
 from src.config import RobotDimensions
 from numpy import degrees, cos, sin, pi
 
+# TODO: Correct the functions, it currently doesnt work
+
 
 class OdometryController:
     def __init__(self, start_x, start_y, start_orientation):
@@ -11,6 +13,11 @@ class OdometryController:
         self.orientation_deg = int(degrees(start_orientation))
 
     def update_position_from_ticks(self, ticks_left, ticks_right, small_error=False):
+
+        # NOTE: Our robot's are mounted backwards
+        ticks_left *= -1
+        ticks_right *= -1
+
         if ticks_left * ticks_right < 0:  # opposite direction -> turned
             if ticks_left >= 0:  # turned left
                 self.orientation += (
@@ -36,8 +43,18 @@ class OdometryController:
             else:
                 direction = 1
             ticks = min(abs(ticks_left), abs(ticks_right))
-            self.x += direction * ticks * sin(self.orientation)
-            self.y += direction * ticks * cos(self.orientation)
+            self.x += (
+                direction
+                * ticks
+                * sin(self.orientation)
+                / RobotDimensions.TICKS_PER_METER
+            )
+            self.y += (
+                direction
+                * ticks
+                * cos(self.orientation)
+                / RobotDimensions.TICKS_PER_METER
+            )
             error_left, error_right = (
                 ticks_left - direction * ticks,
                 ticks_right - direction * ticks,

@@ -22,8 +22,8 @@ class RobotDimensions:
 
 
 class SpeedConfig:
-    DEFAULT_MOVING_SPEED = 10
-    DEFAULT_ROTATING_SPEED = 5
+    DEFAULT_MOVING_SPEED = 20
+    DEFAULT_ROTATING_SPEED = 10
     DEFAULT_RAW_SPEED = 50
     MAX_SPEED = 40
     MIN_SPEED = 2
@@ -32,7 +32,7 @@ class SpeedConfig:
 
 
 class RateConfig:
-    ODOMETRY_FREQUENCY = 10  # Hz
+    ODOMETRY_FREQUENCY = 2  # Hz
     MOTOR_FREQUENCY = 100  # Hz
 
 

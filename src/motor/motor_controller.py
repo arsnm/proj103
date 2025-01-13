@@ -551,14 +551,19 @@ class MotorController:
 
 
 if __name__ == "__main__":
-    # parser.add_argument("-i", "--instructions", type=str, help="Instruction string to execute")
-    # parser = argparse.ArgumentParser(description="Motor Controller CLI")
-    # args = parser.parse_args()
+    parser = argparse.ArgumentParser(
+        prog="MotorController",
+        description="Motor Controller CLI",
+    )
+    parser.add_argument(
+        "-i", "--instructions", type=str, help="Instruction string to execute"
+    )
+    args = parser.parse_args()
 
     odo = OdometryController(0, -25, 0)
     motor_controller = MotorController(odo)
     print("Starting executing instructions...")
-    instr = "r200"
+    instr = args.instructions
     # log
     print("Executing the following instructions: ", instr)
     motor_controller.execute_instructions(instr)
