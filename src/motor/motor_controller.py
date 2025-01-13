@@ -560,7 +560,7 @@ if __name__ == "__main__":
     odo = OdometryController(0, -25, 0)
     motor_controller = MotorController(odo)
     print("Starting executing instructions...")
-    instr = "r10, a45, d5, a-45, r10"
+    instr = "r10, a45, d5, a-45, r10, d3"
     # log
     print("Executing the following instructions: ", instr)
     motor_controller.execute_instructions(instr)
