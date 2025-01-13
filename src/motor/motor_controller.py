@@ -481,10 +481,10 @@ class MotorController:
     def delay_controlled(self, delay):
         """Add a delay between movements."""
 
-        def command():
+        def command(delay):
             t.sleep(delay)
 
-        self.command_queue.put(command)
+        self.command_queue.put((command, (delay)))
 
     def turn_controlled_deg(self, angle, speed=None):
         angle *= pi / 180
