@@ -57,7 +57,7 @@ class MotorController:
                 print("Starting command...")
                 command(*args)
                 # log
-                print("Starting command...")
+                print("Finished command...")
             if self.terminate_all_event.is_set():
                 print("Terminate event is set, finishing...")
                 self.command_queue.task_done()
@@ -560,7 +560,7 @@ if __name__ == "__main__":
     odo = OdometryController(0, -25, 0)
     motor_controller = MotorController(odo)
     print("Starting executing instructions...")
-    instr = "r10, a45, d5, a-45, r-10"
+    instr = "r10, a45, d5, a-45, r10"
     # log
     print("Executing the following instructions: ", instr)
     motor_controller.execute_instructions(instr)
