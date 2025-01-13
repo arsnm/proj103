@@ -38,7 +38,7 @@ class MotorController:
         )
         self.worker_thread.start()
         self.stop_event = threading.Event()
-        self.terminate_event = threading.Event()
+        self.terminate_all_event = threading.Event()
         self.action_lock = threading.Lock()
 
         if not test_mode:
@@ -53,19 +53,14 @@ class MotorController:
             item = self.command_queue.get()
             if item != ():
                 command, args = item
-                if self.terminate_event.is_set():
+                if self.terminate_all_event.is_set():
                     print("Terminate event is set, finishing...")
                     self.command_queue.task_done()
                     break
-                command(*args)
+                movement_thread = threading.Thread(target=command, args=args)
+                movement_thread.start()
+                movement_thread.join()
             self.command_queue.task_done()
-
-    def _run_update_controlled(self, target_ticks, direction, type):
-        update_thread = threading.Thread(
-            target=self.update_controlled, args=(target_ticks, direction, type)
-        )
-        update_thread.start()
-        update_thread.join()
 
     def update_raw_speed(self, speed):
         try:
@@ -99,6 +94,10 @@ class MotorController:
             print(f"ERROR - {e}")
         return
 
+    def update_odometry(self):
+        self.odometry.update_position_from_ticks(*self.odometry_ticks)
+        self.odometry_ticks = (0, 0)
+
     def move_uncontrolled(self, direction: str, speed=None):
         """Basic movement without control."""
 
@@ -125,96 +124,103 @@ class MotorController:
         elif direction == "stop":
             self.controller.set_raw_motor_speed(0, 0)
 
-    def update_controlled(self, target_ticks, direction: int, type):
-        # type == True -> move
-        # type == False --> turn
+        # def update_controlled(self, target_ticks, direction: int, type):
+        #     # type == True -> move
+        #     # type == False --> turn
+        #
+        #     print("Updating controlled movements...")
+        #     dt = 1 / self.update_frequency
+        #     correction = 0
+        #     odometry_rate = 1 / RateConfig.ODOMETRY_FREQUENCY
+        #     next_odometry_update = t.time() + odometry_rate
+        #     remaining_left, remaining_right = target_ticks
+        #
+        #     next_update = t.time() + dt
+        #
+        #     while not self.stop_event.is_set() and not self.terminate_event.is_set():
+        #
+        #         # NOTE: time between two updates must be higher than the time it takes to compute PID
+        #
+        #         overshoot_interval = int(
+        #             2 * 100 * dt * (self.speed + abs(correction))
+        #         )  # speed in ticks/0.01s
+        #
+        #         # log
+        #         print(
+        #             f"update_control at {t.time()} : {overshoot_interval}, {remaining_left}, {remaining_right}, {correction}"
+        #         )
+        #
+        #         while (
+        #             abs(remaining_left) < overshoot_interval
+        #             or abs(remaining_right) < overshoot_interval
+        #         ):
+        #             self.speed //= 3
+        #             overshoot_interval = int(2 * 100 * dt * (self.speed + abs(correction)))
+        #         if self.speed <= 2:
+        #             self.stop_event.set()
+        #             break
+        #
+        #         speed_oriented = -direction * self.speed
+        #         if type:
+        #             print(
+        #                 f"set speed : {speed_oriented + correction}, {speed_oriented - correction}"
+        #             )
+        #             self.controller.set_motor_speed(
+        #                 speed_oriented + correction, speed_oriented - correction
+        #             )
+        #         else:
+        #             self.controller.set_motor_speed(
+        #                 -speed_oriented + correction, speed_oriented + correction
+        #             )
+        #
+        #         t.sleep(max(next_update - t.time(), 0))
+        #         next_update = t.time() + dt
+        #
+        #         ticks = self.controller.get_encoder_ticks()
+        #         print(f"ticks:{ticks}")
+        #
+        #         remaining_left -= ticks[0]
+        #         remaining_right -= ticks[1]
+        #
+        #         self.odometry_ticks = (
+        #             self.odometry_ticks[0] + ticks[0],
+        #             self.odometry_ticks[1] + ticks[1],
+        #         )
+        #         if t.time() > next_odometry_update:
+        #             self.odometry.update_position_from_ticks(*self.odometry_ticks)
+        #             self.odometry_ticks = (0, 0)
+        #             next_odometry_update += odometry_rate
+        #
+        #         if type:
+        #             error = (remaining_left - remaining_right) * 0.01 / dt
+        #         else:
+        #             error = (remaining_left + remaining_right) * 0.01 / dt
+        #         print(f"Error: {error}")
+        #
+        #         try:
+        #             if self.pid is not None:  # should always be true
+        #                 correction = self.pid.compute(error, dt)
+        #             else:
+        #                 self.controller.standby()
+        #                 raise ValueError("PID was not correctly initialized")
+        #         except ValueError as e:
+        #             print(f"ERROR - {e}")
+        #
+        #     self.controller.standby()
+        #     ticks = self.controller.get_encoder_ticks()
+        #     self.odometry.update_position_from_ticks(ticks[0], ticks[1], True)
 
-        print("Updating controlled movements...")
-        dt = 1 / self.update_frequency
-        correction = 0
-        odometry_rate = 1 / RateConfig.ODOMETRY_FREQUENCY
-        next_odometry_update = t.time() + odometry_rate
-        remaining_left, remaining_right = target_ticks
-
-        next_update = t.time() + dt
-
-        while not self.stop_event.is_set() and not self.terminate_event.is_set():
-
-            # NOTE: time between two updates must be higher than the time it takes to compute PID
-
-            overshoot_interval = int(
-                2 * 100 * dt * (self.speed + abs(correction))
-            )  # speed in ticks/0.01s
-
-            # log
-            print(
-                f"update_control at {t.time()} : {overshoot_interval}, {remaining_left}, {remaining_right}, {correction}"
-            )
-
-            while (
-                abs(remaining_left) < overshoot_interval
-                or abs(remaining_right) < overshoot_interval
-            ):
-                self.speed //= 3
-                overshoot_interval = int(2 * 100 * dt * (self.speed + abs(correction)))
-            if self.speed <= 2:
-                self.stop_event.set()
-                break
-
-            speed_oriented = -direction * self.speed
-            if type:
-                print(
-                    f"set speed : {speed_oriented + correction}, {speed_oriented - correction}"
-                )
-                self.controller.set_motor_speed(
-                    speed_oriented + correction, speed_oriented - correction
-                )
-            else:
-                self.controller.set_motor_speed(
-                    -speed_oriented + correction, speed_oriented + correction
-                )
-
-            t.sleep(max(next_update - t.time(), 0))
-            next_update = t.time() + dt
-
-            ticks = self.controller.get_encoder_ticks()
-            print(f"ticks:{ticks}")
-
-            remaining_left -= ticks[0]
-            remaining_right -= ticks[1]
-
-            self.odometry_ticks = (
-                self.odometry_ticks[0] + ticks[0],
-                self.odometry_ticks[1] + ticks[1],
-            )
-            if t.time() > next_odometry_update:
-                self.odometry.update_position_from_ticks(*self.odometry_ticks)
-                self.odometry_ticks = (0, 0)
-                next_odometry_update += odometry_rate
-
-            if type:
-                error = (remaining_left - remaining_right) * 0.01 / dt
-            else:
-                error = (remaining_left + remaining_right) * 0.01 / dt
-            print(f"Error: {error}")
-
-            try:
-                if self.pid is not None:  # should always be true
-                    correction = self.pid.compute(error, dt)
-                else:
-                    self.controller.standby()
-                    raise ValueError("PID was not correctly initialized")
-            except ValueError as e:
-                print(f"ERROR - {e}")
-
-        self.controller.standby()
-        ticks = self.controller.get_encoder_ticks()
-        self.odometry.update_position_from_ticks(ticks[0], ticks[1], True)
-
-    def move_controlled(self, distance, speed=None, no_wait=False):
-        """Controlled movement with motor ticks feedback (PID)"""
+    def move_controlled(self, distance: float, speed=None, no_wait=False):
+        """Controlled movement with position feedback."""
 
         def command(distance, speed):
+            if distance == 0:
+                return (0, 0)
+            elif distance < 0.0:
+                distance = -distance
+                direction = -1
+            else:
+                direction = 1
             if speed is not None:
                 self.update_speed(speed)
             else:
@@ -226,26 +232,99 @@ class MotorController:
                 )
                 return
 
-            print(f"MOTOR - Moving {distance}m at speed {self.speed}")
+            target_ticks = int(distance * RobotDimensions.TICKS_PER_METER)
+            remaining_left = remaining_right = target_ticks
 
-            target_ticks = int(distance * RobotDimensions.TICKS_PER_ROT)
-            direction = -1 if distance < 0 else 1
-            self.pid = init_pid(
+            motor_rate = 1 / RateConfig.MOTOR_FREQUENCY
+            odometry_rate = 1 / RateConfig.ODOMETRY_FREQUENCY
+
+            pid = init_pid(
                 0,
-                -SpeedConfig.MAX_SPEED + self.speed,
+                -SpeedConfig.MAX_SPEED - self.speed,
                 SpeedConfig.MAX_SPEED - self.speed,
             )
-            self._run_update_controlled((target_ticks, target_ticks), direction, True)
+
+            correction = 0
+            speed_oriented = -direction * self.speed
+
+            # Clear encoder counts
+            self.controller.get_encoder_ticks()
+
+            next_update_odometry = t.time() + odometry_rate
+            next_update_motor = t.time() + motor_rate
+
+            while (
+                not self.stop_event.is_set() and not self.terminate_all_event.is_set()
+            ):
+                overshoot_interval = (
+                    2 * 100 * motor_rate * (self.speed + abs(correction))
+                )
+
+                # log
+                print(
+                    f"update_control at {t.time()} : {overshoot_interval}, {remaining_left}, {remaining_right}, {correction}"
+                )
+
+                if (
+                    remaining_left < overshoot_interval
+                    or remaining_right < overshoot_interval
+                ):
+                    self.speed //= 3
+                    speed_oriented = -direction * self.speed
+
+                if self.speed <= 2:
+                    self.stop_event.set()
+                    break
+
+                self.controller.set_motor_speed(
+                    speed_oriented + correction, speed_oriented - correction
+                )
+
+                t.sleep(next_update_motor - t.time())
+                next_update_motor += motor_rate
+
+                ticks = self.controller.get_encoder_ticks()
+
+                self.odometry_ticks = (
+                    self.odometry_ticks[0] + ticks[0],
+                    self.odometry_ticks[1] + ticks[1],
+                )
+                if t.time() > next_update_odometry:
+                    self.update_odometry()
+                    next_update_odometry += odometry_rate
+
+                remaining_left -= -direction * ticks[0]
+
+                remaining_right -= -direction * ticks[1]
+
+                error = (remaining_left - remaining_right) * 0.01 / motor_rate
+
+                correction = pid.compute(error, motor_rate)
+
+            self.controller.standby()
+            self.update_odometry()
+
+            t.sleep(0.5)
+
+            return (remaining_left, remaining_right)
 
         if no_wait:
             self.add_command_to_front((command, (distance, speed)))
         else:
             self.command_queue.put((command, (distance, speed)))
 
-    def turn_controlled(self, angle, speed=None, no_wait=False):
-        """Controlled turn with motor ticks feedback (PID)"""
+    def turn_controlled(self, angle: float, speed=None, no_wait=False):
+        """Controlled rotation with position feedback."""
 
         def command(angle, speed):
+            if angle == 0.0:
+                return (0, 0)
+            elif angle < 0.0:
+                angle = -angle
+                side = -1
+            else:
+                side = 1
+
             if speed is not None:
                 self.update_speed(speed)
             else:
@@ -253,26 +332,151 @@ class MotorController:
 
             if self.test_mode:
                 print(
-                    f"TEST - Robot should turn controlled at speed {self.speed} for {angle * 180 / pi:.2f}deg"
+                    f"TEST - Robot should turn controlled {angle}rad at speed {self.speed}."
                 )
                 return
-
-            print(f"MOTOR - Turning {angle} at speed {self.speed}")
-
-            angle = angle % (2 * pi) - pi / 2
             target_ticks = int(angle * RobotDimensions.TICKS_PER_RAD)
-            direction = -1 if angle < 0 else 1
-            self.pid = init_pid(
+            remaining_left = remaining_right = target_ticks
+
+            motor_rate = 1 / RateConfig.MOTOR_FREQUENCY
+            odometry_rate = 1 / RateConfig.ODOMETRY_FREQUENCY
+
+            pid = init_pid(
                 0,
-                -SpeedConfig.MAX_SPEED + self.speed,
+                -SpeedConfig.MAX_SPEED - self.speed,
                 SpeedConfig.MAX_SPEED - self.speed,
             )
-            self._run_update_controlled((target_ticks, -target_ticks), direction, False)
+
+            correction = 0
+            speed_oriented = side * self.speed
+
+            # Clear encoder counts
+            self.controller.get_encoder_ticks()
+
+            next_update_odometry = t.time() + odometry_rate
+            next_update_motor = t.time() + motor_rate
+            correction = 0
+            speed_oriented = side * self.speed
+
+            while True:
+                overshoot_interval = (
+                    2 * 100 * motor_rate * (self.speed + abs(correction))
+                )
+
+                if (
+                    remaining_left < overshoot_interval
+                    or remaining_right < overshoot_interval
+                ):
+                    self.speed //= 3
+                    speed_oriented = side * self.speed
+
+                if self.speed <= 2:
+                    self.stop_event.set()
+                    break
+
+                self.controller.set_motor_speed(
+                    -speed_oriented + correction, speed_oriented + correction
+                )
+
+                t.sleep(next_update_motor - t.time())
+                next_update_motor += motor_rate
+
+                ticks = self.controller.get_encoder_ticks()
+
+                self.odometry_ticks = (
+                    self.odometry_ticks[0] + ticks[0],
+                    self.odometry_ticks[1] + ticks[1],
+                )
+                if t.time() > next_update_odometry:
+                    self.update_odometry()
+                    next_update_odometry += odometry_rate
+
+                remaining_left -= -side * ticks[0]
+
+                remaining_right -= side * ticks[1]
+
+                error = (remaining_left - remaining_right) * 0.01 / motor_rate
+
+                correction = side * pid.compute(error, motor_rate)
+
+            self.controller.standby()
+            self.update_odometry()
+
+            t.sleep(0.5)
+
+            return (remaining_left, remaining_right)
 
         if no_wait:
             self.add_command_to_front((command, (angle, speed)))
         else:
             self.command_queue.put((command, (angle, speed)))
+
+    def get_speed(self):
+        """Get current motor speeds."""
+        return self.controller.get_motor_speed()
+
+    # def move_controlled(self, distance, speed=None, no_wait=False):
+    #     """Controlled movement with motor ticks feedback (PID)"""
+    #
+    #     def command(distance, speed):
+    #         if speed is not None:
+    #             self.update_speed(speed)
+    #         else:
+    #             self.update_speed(SpeedConfig.DEFAULT_MOVING_SPEED)
+    #
+    #         if self.test_mode:
+    #             print(
+    #                 f"TEST - Robot should move controlled at speed {self.speed} for {distance}m."
+    #             )
+    #             return
+    #
+    #         print(f"MOTOR - Moving {distance}m at speed {self.speed}")
+    #
+    #         target_ticks = int(distance * RobotDimensions.TICKS_PER_ROT)
+    #         direction = -1 if distance < 0 else 1
+    #         self.pid = init_pid(
+    #             0,
+    #             -SpeedConfig.MAX_SPEED + self.speed,
+    #             SpeedConfig.MAX_SPEED - self.speed,
+    #         )
+    #         self._run_update_controlled((target_ticks, target_ticks), direction, True)
+    #
+    #     if no_wait:
+    #         self.add_command_to_front((command, (distance, speed)))
+    #     else:
+    #         self.command_queue.put((command, (distance, speed)))
+    #
+    # def turn_controlled(self, angle, speed=None, no_wait=False):
+    #     """Controlled turn with motor ticks feedback (PID)"""
+    #
+    #     def command(angle, speed):
+    #         if speed is not None:
+    #             self.update_speed(speed)
+    #         else:
+    #             self.update_speed(SpeedConfig.DEFAULT_ROTATING_SPEED)
+    #
+    #         if self.test_mode:
+    #             print(
+    #                 f"TEST - Robot should turn controlled at speed {self.speed} for {angle * 180 / pi:.2f}deg"
+    #             )
+    #             return
+    #
+    #         print(f"MOTOR - Turning {angle} at speed {self.speed}")
+    #
+    #         angle = angle % (2 * pi) - pi / 2
+    #         target_ticks = int(angle * RobotDimensions.TICKS_PER_RAD)
+    #         direction = -1 if angle < 0 else 1
+    #         self.pid = init_pid(
+    #             0,
+    #             -SpeedConfig.MAX_SPEED + self.speed,
+    #             SpeedConfig.MAX_SPEED - self.speed,
+    #         )
+    #         self._run_update_controlled((target_ticks, -target_ticks), direction, False)
+    #
+    #     if no_wait:
+    #         self.add_command_to_front((command, (angle, speed)))
+    #     else:
+    #         self.command_queue.put((command, (angle, speed)))
 
     def delay_controlled(self, delay):
         """Add a delay between movements."""
@@ -292,7 +496,7 @@ class MotorController:
 
     def stop_all_controlled(self):
         print("Interrupting all the ongoing controlled movements...")
-        self.terminate_event.set()
+        self.terminate_all_event.set()
         self.stop_event.set()
         with self.command_queue.mutex:
             self.command_queue.queue.clear()
@@ -334,7 +538,7 @@ class MotorController:
         """Gracefully stop the worker thread and wait for it to finish."""
         print("Shutting down worker thread...")
         self.command_queue.join()
-        self.terminate_event.set()
+        self.terminate_all_event.set()
         self.command_queue.put(())  # Ensure the queue isn't blocking
         self.worker_thread.join()  # Wait for the thread to finish
         print("Worker thread shut down successfully.")
@@ -348,8 +552,9 @@ if __name__ == "__main__":
     odo = OdometryController(0, -25, 0)
     motor_controller = MotorController(odo)
     print("Starting executing instructions...")
-    instr = "r10"
+    instr = "r10, a45, d5, a-45, r-10"
     # log
     print("Executing the following instructions: ", instr)
     motor_controller.execute_instructions(instr)
     motor_controller.shutdown()
+    print(odo.x, odo.x, odo.orientation)

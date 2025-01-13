@@ -26,7 +26,7 @@ class SpeedConfig:
     DEFAULT_ROTATING_SPEED = 5
     DEFAULT_RAW_SPEED = 50
     MAX_SPEED = 40
-    MIN_SPEED = 2  # useless
+    MIN_SPEED = 2
     MIN_RAW_SPEED = 5
     MAX_RAW_SPEED = 125
 
