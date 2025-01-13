@@ -53,6 +53,8 @@ class MotorController:
             item = self.command_queue.get()
             if item != ():
                 command, args = item
+                # log
+                print(args, type(args))
                 if self.terminate_all_event.is_set():
                     print("Terminate event is set, finishing...")
                     self.command_queue.task_done()
