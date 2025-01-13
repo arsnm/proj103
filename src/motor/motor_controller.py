@@ -306,10 +306,11 @@ class MotorController:
 
             return (remaining_left, remaining_right)
 
+        item = (command, (distance, speed))
         if no_wait:
-            self.add_command_to_front((command, (distance, speed)))
+            self.add_command_to_front(item)
         else:
-            self.command_queue.put((command, (distance, speed)))
+            self.command_queue.put(item)
 
     def turn_controlled(self, angle: float, speed=None, no_wait=False):
         """Controlled rotation with position feedback."""
@@ -404,10 +405,11 @@ class MotorController:
 
             return (remaining_left, remaining_right)
 
+        item = (command, (angle, speed))
         if no_wait:
-            self.add_command_to_front((command, (angle, speed)))
+            self.add_command_to_front(item)
         else:
-            self.command_queue.put((command, (angle, speed)))
+            self.command_queue.put(item)
 
     def get_speed(self):
         """Get current motor speeds."""
@@ -476,13 +478,17 @@ class MotorController:
     #     else:
     #         self.command_queue.put((command, (angle, speed)))
 
-    def delay_controlled(self, delay):
+    def delay_controlled(self, delay, no_wait=False):
         """Add a delay between movements."""
 
         def command(delay):
             t.sleep(delay)
 
-        self.command_queue.put((command, (delay)))
+        item = (command, (delay))
+        if no_wait:
+            self.add_command_to_front(item)
+        else:
+            self.command_queue.put(item)
 
     def turn_controlled_deg(self, angle, speed=None):
         angle *= pi / 180
