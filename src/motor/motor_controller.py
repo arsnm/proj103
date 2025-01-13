@@ -39,7 +39,6 @@ class MotorController:
         self.worker_thread.start()
         self.stop_event = threading.Event()
         self.terminate_all_event = threading.Event()
-        self.shutdown_event = threading.Event()
         self.action_lock = threading.Lock()
 
         if not test_mode:
@@ -50,15 +49,15 @@ class MotorController:
             self.controller.get_encoder_ticks()  # to init the ticks counter
 
     def _command_processor(self):
-        while not self.shutdown_event.is_set() or not self.command_queue.empty():
+        while True:
             item = self.command_queue.get()
+            if item != ():
+                command, args = item
+                command(*args)
             if self.terminate_all_event.is_set():
                 print("Terminate event is set, finishing...")
                 self.command_queue.task_done()
                 break
-            if item != ():
-                command, args = item
-                command(*args)
             self.command_queue.task_done()
 
     def update_raw_speed(self, speed):
@@ -544,7 +543,7 @@ class MotorController:
         print("Shutting down worker thread...")
         self.command_queue.put(())  # Ensure the queue isn't blocking
         self.command_queue.join()
-        self.shutdown_event.set()
+        self.terminate_all_event.set()
         self.worker_thread.join()  # Wait for the thread to finish
         print("Worker thread shut down successfully.")
 
