@@ -226,7 +226,7 @@ class MotorController:
 
             if self.test_mode:
                 print(
-                    f"TEST - Robot should move controlled at speed {self.speed} for {distance}m."
+                    f"TEST - Robot should move controlled at speed {self.speed} for {direction * distance}m."
                 )
                 return
 
@@ -331,7 +331,7 @@ class MotorController:
 
             if self.test_mode:
                 print(
-                    f"TEST - Robot should turn controlled {angle}rad at speed {self.speed}."
+                    f"TEST - Robot should turn controlled {side * angle}rad at speed {self.speed}."
                 )
                 return
             target_ticks = int(angle * RobotDimensions.TICKS_PER_RAD)
@@ -554,11 +554,11 @@ if __name__ == "__main__":
     # args = parser.parse_args()
 
     odo = OdometryController(0, -25, 0)
-    motor_controller = MotorController(odo, True)
+    motor_controller = MotorController(odo)
     print("Starting executing instructions...")
     instr = "r10, a45, d5, a-45, r-10"
     # log
     print("Executing the following instructions: ", instr)
     motor_controller.execute_instructions(instr)
     motor_controller.shutdown()
-    print(odo.x, odo.x, odo.orientation)
+    print(odo.x, odo.y, odo.orientation)
