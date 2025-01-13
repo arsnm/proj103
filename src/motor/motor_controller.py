@@ -57,9 +57,7 @@ class MotorController:
                     print("Terminate event is set, finishing...")
                     self.command_queue.task_done()
                     break
-                movement_thread = threading.Thread(target=command, args=args)
-                movement_thread.start()
-                movement_thread.join()
+                command(*args)
             self.command_queue.task_done()
 
     def update_raw_speed(self, speed):
@@ -490,7 +488,7 @@ class MotorController:
         angle *= pi / 180
         self.turn_controlled(angle, speed)
 
-    def move_uncontrolled_centimeters(self, distance, speed=None):
+    def move_controlled_centimeters(self, distance, speed=None):
         distance /= 100
         self.move_controlled(distance, speed)
 
@@ -520,7 +518,7 @@ class MotorController:
             elif instruction.startswith("r"):
                 try:
                     distance = float(instruction[1:])
-                    self.move_uncontrolled_centimeters(distance)
+                    self.move_controlled_centimeters(distance)
                 except ValueError:
                     print(f"Invalid distance value in instruction: {instruction}")
                     print("Queued moving instruction...")
