@@ -14,8 +14,8 @@ class GridDimensions:
 
 
 class RobotDimensions:
-    WHEEL_BASE = 0.18  # distance, in meters, between the two wheels
-    WHEEL_RADIUS = 0.07  # radius, in meters, of a wheel
+    WHEEL_BASE = 0.175  # distance, in meters, between the two wheels
+    WHEEL_RADIUS = 0.065  # radius, in meters, of a wheel
     TICKS_PER_ROT = 3800  # ticks for one full rotation of the wheel
     TICKS_PER_METER = TICKS_PER_ROT / (2 * pi * WHEEL_RADIUS)
     TICKS_PER_RAD = TICKS_PER_ROT * WHEEL_BASE / 2
