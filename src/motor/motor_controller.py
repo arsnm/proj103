@@ -51,12 +51,12 @@ class MotorController:
     def _command_processor(self):
         while True:
             item = self.command_queue.get()
+            if self.terminate_all_event.is_set():
+                print("Terminate event is set, finishing...")
+                self.command_queue.task_done()
+                break
             if item != ():
                 command, args = item
-                if self.terminate_all_event.is_set():
-                    print("Terminate event is set, finishing...")
-                    self.command_queue.task_done()
-                    break
                 command(*args)
             self.command_queue.task_done()
 
