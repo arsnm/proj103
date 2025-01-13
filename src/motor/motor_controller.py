@@ -300,7 +300,7 @@ class MotorController:
 
                 error = (remaining_left - remaining_right) * 0.01 / motor_rate
 
-                correction = pid.compute(error, motor_rate)
+                correction = direction * pid.compute(error, motor_rate)
 
             self.controller.standby()
             self.update_odometry()
