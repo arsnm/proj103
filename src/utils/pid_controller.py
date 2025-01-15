@@ -32,7 +32,9 @@ class PIDController:
 
         self.previous_error = error
 
-        print(f"error: {error}, {p_term}, {i_term}, {d_term}")
+        # # log
+        # print(f"error: {error}, p:{p_term}, i:{i_term}, d:{d_term}")
+
         # Calculate output and apply limits
         output = int(p_term + i_term + d_term)
         return max(int(self.min_value), min(int(self.max_value), output))

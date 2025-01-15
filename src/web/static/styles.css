@@ -1,0 +1,166 @@
+/* General Layout */
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.panel {
+    background: #f5f5f5;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+.full-width {
+    width: 100%;
+}
+
+/* Status Panel */
+.status-panel {
+    display: grid;
+    gap: 10px;
+}
+
+/* Controls */
+.control-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.mode-toggle, .target-toggle {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.mode-toggle button, .target-toggle button {
+    padding: 8px 16px;
+    background: #e0e0e0;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.mode-toggle button.active, .target-toggle button.active {
+    background: #2196f3;
+    color: white;
+}
+
+/* Speed Control */
+.speed-control {
+    margin: 15px 0;
+}
+
+#speedSlider {
+    width: 100%;
+    margin-top: 10px;
+}
+
+/* Direction Controls */
+.control-buttons {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    max-width: 300px;
+    margin: 0 auto;
+}
+
+.control-buttons button {
+    padding: 15px;
+    font-size: 20px;
+    border: none;
+    border-radius: 4px;
+    background: #4CAF50;
+    color: white;
+    cursor: pointer;
+}
+
+.control-buttons button:hover {
+    background: #45a049;
+}
+
+#forwardBtn { grid-column: 2; }
+#leftBtn { grid-column: 1; grid-row: 2; }
+#rightBtn { grid-column: 3; grid-row: 2; }
+#backwardBtn { grid-column: 2; grid-row: 3; }
+
+/* Target Controls */
+.target-controls {
+    margin-top: 15px;
+}
+
+.coordinates-container, .case-container {
+    display: none;
+    gap: 10px;
+    margin: 10px 0;
+}
+
+.coordinates-container.active, .case-container.active {
+    display: flex;
+}
+
+.coordinates-container input, .case-container input {
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+#sendTarget {
+    width: 100%;
+    padding: 10px;
+    margin-top: 10px;
+    background: #2196f3;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+/* Video Container */
+#videoContainer {
+    width: 100%;
+    aspect-ratio: 16/9;
+    background: #000;
+    margin-bottom: 10px;
+}
+
+#videoContainer img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+/* Logs */
+#logs {
+    height: 200px;
+    overflow-y: auto;
+    background: #fff;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.log-error { color: #f44336; }
+.log-command { color: #2196f3; }
+.log-status { color: #4CAF50; }
+.log-connection { color: #9c27b0; }
+.log-movement { color: #ff9800; }
+.log-robot { color: #607d8b; }
+
+/* Visibility Controls */
+.hidden {
+    display: none !important;
+}
+
+/* Disabled State */
+.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+button:disabled {
+    background: #cccccc;
+    cursor: not-allowed;
+}

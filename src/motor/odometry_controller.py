@@ -1,11 +1,11 @@
 from src.config import RobotDimensions
 from numpy import degrees, cos, sin, pi
 
-# TODO: Correct the functions, it currently doesnt work
+# TODO: Correct the functions, it currently doesnt work (it maybe works actually)
 
 
 class OdometryController:
-    def __init__(self, start_x, start_y, start_orientation):
+    def __init__(self, start_x=0.0, start_y=0.0, start_orientation=0.0):
         self.x = start_x  # in m
         self.y = start_y  # in m
         self.error_ticks = (0, 0)

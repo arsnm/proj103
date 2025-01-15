@@ -6,11 +6,13 @@ class NetworkConfig:
     HTTP_PORT = 8000
     TRACKING_SERVER_URL = "http://proj103.r2.enst.fr/api"
     TRACKING_SERVER_PORT = 80
+    RMTP_URL = ""
 
 
 class GridDimensions:
     GRID_CASE = 0.5  # size of a squared case in meter
     GRID_SIZE = (6, 7)  # dimension of the grid (taking the landing area into account)
+    FLAG_DETECTION_THRESHOLD = GRID_CASE * 0.7
 
 
 class RobotDimensions:
@@ -21,19 +23,21 @@ class RobotDimensions:
     TICKS_PER_RAD = TICKS_PER_METER * WHEEL_BASE / 2
 
 
-class SpeedConfig:
+class MotorConfig:
     DEFAULT_MOVING_SPEED = 20
     DEFAULT_ROTATING_SPEED = 10
     DEFAULT_RAW_SPEED = 50
-    MAX_SPEED = 40
+    MAX_SPEED = 50
     MIN_SPEED = 2
     MIN_RAW_SPEED = 5
     MAX_RAW_SPEED = 125
+    DEFAULT_INSTR = "r20, a45, a-90, a45, r-20, a360"
 
 
 class RateConfig:
     ODOMETRY_FREQUENCY = 2  # Hz
     MOTOR_FREQUENCY = 100  # Hz
+    TRACKING_SERVER_FREQUENCY = 1  # Hz
 
 
 class PIDConfig:
@@ -43,4 +47,33 @@ class PIDConfig:
 
 
 class CalibrationConfig:
-    pass
+    DIR_CAL_IMAGE = "calibration_images"
+    CAL_FILE = "camera_calibration.npz"
+    CHESS_WIDTH = 7
+    CHESS_HEIGHT = 7
+    CHESS_SIZE = 0.02  # in meters
+
+
+class ArucoConfig:
+    ARUCO_DICT = "DICT_6X6_50"
+    POSITION_SIZE = 0.1  # in meters
+    FLAG_SIZE = 0.02  # in meters
+    HINT_SIZE = 0.02
+    DEFAULT_SIZE = 0.02
+
+
+class CameraConfig:
+    WIDTH = 1280
+    HEIGHT = 800
+    FPS = 10
+
+
+class PositionConfig:
+    X_DIFF_THRESHOLD = 0.02
+    Y_DIFF_THRESHOLD = 0.02
+    ORIENTATION_DIFF_THRESHOLD = 5 * pi / 180
+
+
+class StrategyConfig:
+    NB_COLUMN_TO_CHECK = 1
+    MAX_FLAG_TO_CAPTURE = 2
