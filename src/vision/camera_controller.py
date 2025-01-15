@@ -20,9 +20,9 @@ class CameraController:
         self.save_directory = save_directory
         self.cap = cv2.VideoCapture(self.camera_index)
 
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, CameraConfig.WIDTH)
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CameraConfig.HEIGHT)
-        self.cap.set(cv2.CAP_PROP_FPS, CameraConfig.FPS)
+        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, CameraConfig.WIDTH.value)
+        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CameraConfig.HEIGHT.value)
+        self.cap.set(cv2.CAP_PROP_FPS, CameraConfig.FPS.value)
 
         if not os.path.exists(self.save_directory):
             os.makedirs(self.save_directory)

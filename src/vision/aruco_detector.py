@@ -141,13 +141,13 @@ def pose_estimation_solve_pnp(
         for i in range(0, len(ids)):
 
             if ids[i][0] in range(1, 5):
-                marker_size = ArucoConfig.POSITION_SIZE
+                marker_size = ArucoConfig.POSITION_SIZE.value
             elif ids[i][0] == 0:
-                marker_size = ArucoConfig.HINT_SIZE
+                marker_size = ArucoConfig.HINT_SIZE.value
             elif ids[i][0] in range(5, 17):
-                marker_size = ArucoConfig.FLAG_SIZE
+                marker_size = ArucoConfig.FLAG_SIZE.value
             else:
-                marker_size = ArucoConfig.DEFAULT_SIZE
+                marker_size = ArucoConfig.DEFAULT_SIZE.value
             # Define the 3D points of the marker in world space
             marker_3d_points = np.array(
                 [

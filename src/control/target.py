@@ -1,17 +1,18 @@
 from src.utils.grid_navigation import match_case_to_coord, match_coord_to_case
 from src.motor.motor_controller import MotorController
+from src.config import GridDimensions
 
 
 class TargetController:
-    def __init__(self, motor_controller, grid_case, grid_size):
+    def __init__(self, motor_controller):
         self.motor_controller = motor_controller
         self.running = False
-        self.grid_case = grid_case
-        self.grid_size = grid_size
+        self.grid_case = GridDimensions.GRID_CASE
+        self.grid_size = GridDimensions.GRID_SIZE
         self.motor_controller = motor_controller
-        self.running = False
 
-    def target(self, start_x, start_y, case):
+    def target_case(self, start_x, start_y, case):
+        self.running = True
         self.motor_controller.switch_mode("target")
         self.motor_controller.face_controlled(0)  # face north
         x_case, y_case = match_case_to_coord(case)
@@ -26,3 +27,13 @@ class TargetController:
         else:
             self.motor_controller.move_controlled(x_case - start_x)
         self.motor_controller.turn_controlled_deg(360)
+        self.running = False
+
+    def target_position(self, start_x, start_y, position):
+        self.running = True
+        self.motor_controller.switch_mode("target")
+        self.motor_controller.face_controlled(0)
+        self.motor_controller.move_controlled(position[1] - start_y)
+        self.motor_controller.turn_controlled_deg(-90)  # face east
+        self.motor_controller.move_controlled(position[0] - start_x)
+        self.motor_controller.turn_controlled(0)

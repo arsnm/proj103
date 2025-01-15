@@ -1,5 +1,6 @@
 from src.config import RobotDimensions
 from numpy import degrees, cos, sin, pi
+from threading import Lock
 
 # TODO: Correct the functions, it currently doesnt work (it maybe works actually)
 
@@ -11,6 +12,7 @@ class OdometryController:
         self.error_ticks = (0, 0)
         self.orientation = start_orientation  # in rad, 0 is north, pi/2 is west
         self.orientation_deg = int(degrees(start_orientation))
+        self.lock = Lock()
 
     def update_position_from_ticks(self, ticks_left, ticks_right, small_error=False):
 
@@ -18,6 +20,7 @@ class OdometryController:
         ticks_left *= -1
         ticks_right *= -1
 
+        self.lock.acquire
         if ticks_left * ticks_right < 0:  # opposite direction -> turned
             if ticks_left >= 0:  # turned left
                 self.orientation += (
@@ -68,6 +71,7 @@ class OdometryController:
                 self.error_ticks[0] + error_left,
                 self.error_ticks[1] + error_right,
             )
+        self.lock.release()
 
     def get_position(self):
         return (self.x, self.y, self.orientation_deg)
@@ -84,10 +88,12 @@ class OdometryController:
         self.orientation_deg = int(degrees(self.orientation))
 
     def reset_position(self, x=0, y=0, orientation=0):
+        self.lock.acquire()
         self.x = x
         self.y = y
         self.orientation = orientation % (2 * pi)
         self.update_orientation_degrees()
+        self.lock.release()
 
     def handle_error(self):
         self.update_position_from_ticks(*self.error_ticks, True)

@@ -11,10 +11,12 @@ from numpy import pi
 # web_pdb.set_trace(host="0.0.0.0", port=8080)
 
 
-def init_pid(target: int = 0, min=-MotorConfig.MAX_SPEED, max=MotorConfig.MAX_SPEED):
-    k_p = PIDConfig.K_P
-    k_i = PIDConfig.K_I
-    k_d = PIDConfig.K_D
+def init_pid(
+    target: int = 0, min=-MotorConfig.MAX_SPEED.value, max=MotorConfig.MAX_SPEED.value
+):
+    k_p = PIDConfig.K_P.value
+    k_i = PIDConfig.K_I.value
+    k_d = PIDConfig.K_D.value
     return PIDController(target, min, max, k_p, k_i, k_d)
 
 
@@ -30,7 +32,7 @@ class MotorController:
         self.pid = None
         self.error = (0, 0)
         self.current_mode = "manual"
-        self.update_frequency = RateConfig.MOTOR_FREQUENCY
+        self.update_frequency = RateConfig.MOTOR_FREQUENCY.value
         self.command_queue = queue.Queue()
         self.worker_thread = threading.Thread(
             target=self._command_processor, daemon=True
@@ -65,11 +67,11 @@ class MotorController:
         try:
             if (
                 type(speed) != int
-                or speed < MotorConfig.MIN_RAW_SPEED
-                or speed > MotorConfig.MAX_RAW_SPEED
+                or speed < MotorConfig.MIN_RAW_SPEED.value
+                or speed > MotorConfig.MAX_RAW_SPEED.value
             ):
                 raise ValueError(
-                    f"Raw speed should be a positive int between {MotorConfig.MIN_RAW_SPEED} and {MotorConfig.MAX_RAW_SPEED}, -{speed}- was provided"
+                    f"Raw speed should be a positive int between {MotorConfig.MIN_RAW_SPEED.value} and {MotorConfig.MAX_RAW_SPEED.value}, -{speed}- was provided"
                 )
             else:
                 self.raw_speed = speed
@@ -81,11 +83,11 @@ class MotorController:
         try:
             if (
                 type(speed) != int
-                or speed < MotorConfig.MIN_SPEED
-                or speed > MotorConfig.MAX_SPEED
+                or speed < MotorConfig.MIN_SPEED.value
+                or speed > MotorConfig.MAX_SPEED.value
             ):
                 raise ValueError(
-                    f"Speed should be a positive int between {MotorConfig.MIN_SPEED} and {MotorConfig.MAX_SPEED}, -{speed}- was provided"
+                    f"Speed should be a positive int between {MotorConfig.MIN_SPEED.value} and {MotorConfig.MAX_SPEED.value}, -{speed}- was provided"
                 )
             else:
                 self.speed = speed
@@ -97,13 +99,15 @@ class MotorController:
         self.odometry.update_position_from_ticks(*self.odometry_ticks)
         self.odometry_ticks = (0, 0)
 
-    def move_uncontrolled(self, direction: str, speed=None):
+    def move_uncontrolled(self, direction: str, **kwargs):
         """Basic movement without control."""
+        speed = kwargs.get("speed", None)
+        force = kwargs.get("force", False)
 
         if speed is not None:
             self.update_raw_speed(speed)
         else:
-            self.update_raw_speed(MotorConfig.DEFAULT_RAW_SPEED)
+            self.update_raw_speed(MotorConfig.DEFAULT_RAW_SPEED.value)
         speed = -self.raw_speed
 
         if self.test_mode:
@@ -112,17 +116,23 @@ class MotorController:
             )
             return
 
-        if direction == "forward":
-            self.controller.set_raw_motor_speed(speed, speed)
-        elif direction == "backward":
-            self.controller.set_raw_motor_speed(-speed, -speed)
-        elif direction == "right":
-            self.controller.set_raw_motor_speed(-speed, speed)
-        elif direction == "left":
-            self.controller.set_raw_motor_speed(speed, -speed)
-        elif direction == "stop":
-            self.controller.set_raw_motor_speed(0, 0)
-
+        if force:
+            self.switch_mode("manual")
+        if self.current_mode == "manual":
+            if direction == "forward":
+                self.controller.set_raw_motor_speed(speed, speed)
+            elif direction == "backward":
+                self.controller.set_raw_motor_speed(-speed, -speed)
+            elif direction == "right":
+                self.controller.set_raw_motor_speed(-speed, speed)
+            elif direction == "left":
+                self.controller.set_raw_motor_speed(speed, -speed)
+            elif direction == "stop":
+                self.controller.set_raw_motor_speed(0, 0)
+        else:
+            print(
+                "ERROR - Cannot move manually if current_mode is not set to 'manual'."
+            )
         # def update_controlled(self, target_ticks, direction: int, type):
         #     # type == True -> move
         #     # type == False --> turn
@@ -209,8 +219,10 @@ class MotorController:
         #     ticks = self.controller.get_encoder_ticks()
         #     self.odometry.update_position_from_ticks(ticks[0], ticks[1], True)
 
-    def move_controlled(self, distance: float, speed=None, no_wait=False):
+    def move_controlled(self, distance: float, **kwargs):
         """Controlled movement with position feedback."""
+        speed = kwargs.get("speed", None)
+        no_wait = kwargs.get("no_wait", False)
 
         def command(distance, speed):
             if distance == 0:
@@ -310,8 +322,10 @@ class MotorController:
         else:
             self.command_queue.put(item)
 
-    def turn_controlled(self, angle: float, speed=None, no_wait=False):
+    def turn_controlled(self, angle: float, **kwargs):
         """Controlled rotation with position feedback."""
+        speed = kwargs.get("speed", None)
+        no_wait = kwargs.get("no_wait", False)
 
         def command(angle, speed):
             if angle > pi:
@@ -327,23 +341,23 @@ class MotorController:
             if speed is not None:
                 self.update_speed(speed)
             else:
-                self.update_speed(MotorConfig.DEFAULT_ROTATING_SPEED)
+                self.update_speed(MotorConfig.DEFAULT_ROTATING_SPEED.value)
 
             if self.test_mode:
                 print(
                     f"TEST - Robot should turn controlled {side * angle}rad at speed {self.speed}."
                 )
                 return
-            target_ticks = int(angle * RobotDimensions.TICKS_PER_RAD)
+            target_ticks = int(angle * RobotDimensions.TICKS_PER_RAD.value)
             remaining_left = remaining_right = target_ticks
 
-            motor_rate = 1 / RateConfig.MOTOR_FREQUENCY
-            odometry_rate = 1 / RateConfig.ODOMETRY_FREQUENCY
+            motor_rate = 1 / RateConfig.MOTOR_FREQUENCY.value
+            odometry_rate = 1 / RateConfig.ODOMETRY_FREQUENCY.value
 
             pid = init_pid(
                 0,
-                -MotorConfig.MAX_SPEED - self.speed,
-                MotorConfig.MAX_SPEED - self.speed,
+                -MotorConfig.MAX_SPEED.value - self.speed,
+                MotorConfig.MAX_SPEED.value - self.speed,
             )
 
             correction = 0
@@ -414,8 +428,9 @@ class MotorController:
         """Get current motor speeds."""
         return self.controller.get_motor_speed()
 
-    def delay_controlled(self, delay, no_wait=False):
+    def delay_controlled(self, delay, **kwargs):
         """Add a delay between movements."""
+        no_wait = kwargs.get("no_wait", False)
 
         def command(delay):
             start_time = t.time()
@@ -434,21 +449,29 @@ class MotorController:
         else:
             self.command_queue.put(item)
 
-    def turn_controlled_deg(self, angle, speed=None, no_wait=False):
+    def turn_controlled_deg(self, angle, **kwargs):
+        speed = kwargs.get("speed", None)
+        no_wait = kwargs.get("no_wait", False)
         angle *= pi / 180
-        self.turn_controlled(angle, speed, no_wait)
+        self.turn_controlled(angle, speed=speed, no_wait=no_wait)
 
-    def face_controlled(self, orientation, speed=None, no_wait=False):
+    def face_controlled(self, orientation, **kwargs):
+        speed = kwargs.get("speed", None)
+        no_wait = kwargs.get("no_wait", False)
         orientation %= 2 * pi
         angle = orientation - self.odometry.get_position()[2]
-        self.turn_controlled(angle, speed, no_wait)
+        self.turn_controlled(angle, speed=speed, no_wait=no_wait)
 
-    def face_controlled_deg(self, orientation, speed=None, no_wait=False):
-        self.face_controlled(orientation * pi / 180, speed, no_wait)
+    def face_controlled_deg(self, orientation, **kwargs):
+        speed = kwargs.get("speed", None)
+        no_wait = kwargs.get("no_wait", False)
+        self.face_controlled(orientation * pi / 180, speed=speed, no_wait=no_wait)
 
-    def move_controlled_centimeters(self, distance, speed=None, no_wait=False):
+    def move_controlled_centimeters(self, distance, **kwargs):
+        speed = kwargs.get("speed", None)
+        no_wait = kwargs.get("no_wait", False)
         distance /= 100
-        self.move_controlled(distance, speed, no_wait)
+        self.move_controlled(distance, speed=speed, no_wait=no_wait)
 
     def terminate_controlled(self):
         print("Interrupting all the ongoing controlled movements...")
@@ -462,17 +485,16 @@ class MotorController:
         self.command_queue = queue.Queue()
         self.stop_event.clear()
 
-    def switch_mode(self, mode, immediate=False):
+    def switch_mode(self, mode, clear=True):
         if mode == self.current_mode:
-            return
-        if mode == "manual":
+            pass
+        elif mode == "manual":  # manual mode clear the queue by default
             self.clear_command_queue(True)
 
         def command(mode):
             self.current_mode = mode
-            # TODO: Actually execute the right mode
 
-        if immediate:
+        if clear:
             self.clear_command_queue(True)
         else:
             self.command_queue.put((command, (mode,)))
@@ -481,6 +503,22 @@ class MotorController:
         """Add a command to the front of the queue."""
         with self.command_queue.mutex:
             self.command_queue.queue.appendleft(command)
+
+    def _target_started(self, event):
+        def command(event):
+            event.set()
+
+        self.command_queue.put((command, (event,)))
+
+    def _target_achivied(self, event):
+
+        def command(event):
+            event.clear()
+
+        self.command_queue.put((command, (event,)))
+
+    def _automatic_case_done(self, event):
+        pass
 
     def execute_instructions(self, instructions):
         """Translate a list of instructions into movement executions."""
