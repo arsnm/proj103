@@ -153,7 +153,7 @@ class MotorController:
                 self.update_speed(MotorConfig.DEFAULT_MOVING_SPEED.value)
 
             if self.test_mode:
-                event.clear()
+                event.set()
                 print(
                     f"TEST - Robot should move controlled at speed {self.speed} for {direction * distance}m."
                 )
@@ -181,8 +181,6 @@ class MotorController:
             next_update_motor = t.time() + motor_rate
 
             while not self.stop_event.is_set() and not self.terminate_event.is_set():
-                if event is not None and event.is_set():
-                    break
                 overshoot_interval = (
                     2 * 100 * motor_rate * (self.speed + abs(correction))
                 )
@@ -296,11 +294,6 @@ class MotorController:
             speed_oriented = side * self.speed
 
             while not self.stop_event.is_set() and not self.terminate_event.is_set():
-                # log
-                print(f"event.is_set : {event.is_set()}")
-                if event is not None and not event.is_set():
-                    break
-
                 overshoot_interval = (
                     2 * 100 * motor_rate * (self.speed + abs(correction))
                 )
@@ -444,6 +437,7 @@ class MotorController:
         """Translate a list of instructions into movement executions."""
         instruction_list = instructions.split(",")
         finished = threading.Event()
+        finished.clear()
         count = 0
         print(f"Instructions List : {instruction_list}")
         for instruction in instruction_list:
