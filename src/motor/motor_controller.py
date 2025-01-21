@@ -35,7 +35,7 @@ class MotorController:
         self.error = (0, 0)
         self.current_mode = "manual"
         self.update_frequency = RateConfig.MOTOR_FREQUENCY.value
-        self.command_queue = ThreadSafeDeque()
+        self.command_queue = queue.Queue()
         self.worker_thread = threading.Thread(
             target=self._command_processor, daemon=True
         )
@@ -52,7 +52,7 @@ class MotorController:
 
     def _command_processor(self):
         while True:
-            item = self.command_queue.pop()
+            item = self.command_queue.get()
             if item != ():
                 command, args = item
                 command(*args)
@@ -235,9 +235,9 @@ class MotorController:
 
         item = (command, (distance, speed, event))
         if no_wait:
-            self.command_queue.appendleft(item)
+            print("no wait is not implemented yet...")
         else:
-            self.command_queue.append(item)
+            self.command_queue.put(item)
 
     def turn_controlled(self, angle: float, **kwargs):
         """Controlled rotation with position feedback."""
@@ -345,9 +345,9 @@ class MotorController:
 
         item = (command, (angle, speed, event))
         if no_wait:
-            self.command_queue.appendleft(item)
+            print("no_wait not implemented yet...")
         else:
-            self.command_queue.append(item)
+            self.command_queue.put(item)
 
     def get_speed(self):
         """Get current motor speeds."""
@@ -374,9 +374,10 @@ class MotorController:
 
         item = (command, (delay, event))
         if no_wait:
-            self.command_queue.appendleft(item)
+            print("not yet implemented")
+            # self.command_queue.appendleft(item)
         else:
-            self.command_queue.append(item)
+            self.command_queue.put(item)
 
     def turn_controlled_deg(self, angle, **kwargs):
         speed = kwargs.get("speed", None)
@@ -416,51 +417,54 @@ class MotorController:
     def clear_command_queue(self, immediate=False):
         if immediate:
             self.stop_event.set()
-        self.command_queue.clear()
+        self.command_queue.shutdown(immediate=True)
+        self.command_queue = queue.Queue()
         self.stop_event.clear()
 
     def _target_started(self, event):
         def command(event):
             event.set()
 
-        self.command_queue.append((command, (event,)))
+        self.command_queue.put((command, (event,)))
 
     def _target_achivied(self, event):
 
         def command(event):
             event.clear()
 
-        self.command_queue.append((command, (event,)))
+        self.command_queue.put((command, (event,)))
 
     def execute_instructions(self, instructions):
         """Translate a list of instructions into movement executions."""
         instruction_list = instructions.split(",")
+        event = threading.Event()
         print(f"Instructions List : {instruction_list}")
         for instruction in instruction_list:
             instruction = instruction.strip()
+            event.wait()
             if instruction.startswith("a"):
                 try:
                     angle = float(instruction[1:])
-                    self.turn_controlled_deg(angle)
+                    self.turn_controlled_deg(angle, event=event)
                 except ValueError:
                     print(f"Invalid angle value in instruction: {instruction}")
             elif instruction.startswith("f"):
                 try:
                     orientation = float(instruction[1:])
-                    self.face_controlled_deg(orientation)
+                    self.face_controlled_deg(orientation, event=event)
                 except ValueError:
                     print(f"Invalid orientation value in instruction: {instruction}")
             elif instruction.startswith("r"):
                 try:
                     distance = float(instruction[1:])
-                    self.move_controlled_centimeters(distance)
+                    self.move_controlled_centimeters(distance, event=event)
                 except ValueError:
                     print(f"Invalid distance value in instruction: {instruction}")
                     print("Queued moving instruction...")
             elif instruction.startswith("d"):
                 try:
                     delay = float(instruction[1:])
-                    self.delay_controlled(delay)
+                    self.delay_controlled(delay, event=event)
                     print("Queued delay instruction...")
                 except ValueError:
                     print(f"Invalid delay value in instruction: {instruction}")
