@@ -48,7 +48,7 @@ class OdometryController:
                 else:
                     direction = 1
                 ticks = min(abs(ticks_left), abs(ticks_right))
-                self.x += (
+                self.x -= (
                     direction
                     * ticks
                     * sin(self.orientation)
