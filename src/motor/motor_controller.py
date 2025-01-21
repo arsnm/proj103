@@ -139,7 +139,7 @@ class MotorController:
 
         def command(distance, speed, event):
             if event:
-                event.set()
+                event.clear()
             if distance == 0:
                 return (0, 0)
             elif distance < 0.0:
@@ -233,7 +233,7 @@ class MotorController:
             t.sleep(0.3)
 
             if event:
-                event.clear()
+                event.set()
             return (remaining_left, remaining_right)
 
         item = (command, (distance, speed, event))
@@ -250,7 +250,7 @@ class MotorController:
 
         def command(angle, speed, event):
             if event:
-                event.set()
+                event.clear()
             if angle > pi:
                 angle = -(2 * pi - angle)
             if angle == 0.0:
@@ -267,7 +267,7 @@ class MotorController:
                 self.update_speed(MotorConfig.DEFAULT_ROTATING_SPEED.value)
 
             if self.test_mode:
-                event.clear()
+                event.set()
                 print(
                     f"TEST - Robot should turn controlled {side * angle}rad at speed {self.speed}."
                 )
@@ -296,7 +296,7 @@ class MotorController:
             speed_oriented = side * self.speed
 
             while not self.stop_event.is_set() and not self.terminate_event.is_set():
-                if event is not None and event.is_set():
+                if event is not None and not event.is_set():
                     break
 
                 overshoot_interval = (
@@ -344,7 +344,7 @@ class MotorController:
             t.sleep(0.3)
 
             if event:
-                event.clear()
+                event.set()
             return (remaining_left, remaining_right)
 
         item = (command, (angle, speed, event))
@@ -365,7 +365,7 @@ class MotorController:
         def command(delay, event):
             start_time = t.time()
             if event:
-                event.set()
+                event.clear()
             while True:
                 remaining = delay - (t.time() - start_time)
                 if remaining <= 0:
@@ -374,7 +374,7 @@ class MotorController:
                     timeout=remaining
                 ):
                     break
-            event.clear()
+            event.set()
 
         item = (command, (delay, event))
         if no_wait:
