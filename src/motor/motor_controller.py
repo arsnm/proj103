@@ -477,7 +477,7 @@ class MotorController:
         self.command_queue.join()
         print(self.command_queue)
         self.terminate_event.set()
-        self.command_queue.append(())  # Ensure the queue isn't blocking
+        self.command_queue.put(())  # Ensure the queue isn't blocking
         self.worker_thread.join()  # Wait for the thread to finish
         print("Worker thread shut down successfully.")
 
@@ -503,5 +503,5 @@ if __name__ == "__main__":
     # # log
     # print("Executing the following instructions: ", instr)
     motor_controller.execute_instructions(instr)
-    motor_controller.shutdown()
+    # motor_controller.shutdown()
     print(odo.x * 100, odo.y * 100, odo.orientation * 180 / pi)
