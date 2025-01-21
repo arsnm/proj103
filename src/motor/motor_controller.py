@@ -435,6 +435,7 @@ class MotorController:
     def execute_instructions(self, instructions):
         """Translate a list of instructions into movement executions."""
         instruction_list = instructions.split(",")
+        print(f"Instructions List : {instruction_list}")
         for instruction in instruction_list:
             instruction = instruction.strip()
             if instruction.startswith("a"):
@@ -470,6 +471,7 @@ class MotorController:
         """Gracefully stop the worker thread and wait for it to finish."""
         print("Shutting down worker thread...")
         self.command_queue.join()
+        print(self.command_queue)
         self.terminate_event.set()
         self.command_queue.append(())  # Ensure the queue isn't blocking
         self.worker_thread.join()  # Wait for the thread to finish
