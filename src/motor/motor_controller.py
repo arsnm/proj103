@@ -296,6 +296,8 @@ class MotorController:
             speed_oriented = side * self.speed
 
             while not self.stop_event.is_set() and not self.terminate_event.is_set():
+                # log
+                print(f"event.is_set : {event.is_set()}")
                 if event is not None and not event.is_set():
                     break
 
@@ -441,7 +443,7 @@ class MotorController:
     def execute_instructions(self, instructions):
         """Translate a list of instructions into movement executions."""
         instruction_list = instructions.split(",")
-        event = threading.Event()
+        finished = threading.Event()
         count = 0
         print(f"Instructions List : {instruction_list}")
         for instruction in instruction_list:
@@ -449,32 +451,32 @@ class MotorController:
             if instruction.startswith("a"):
                 try:
                     angle = float(instruction[1:])
-                    self.turn_controlled_deg(angle, event=event)
+                    self.turn_controlled_deg(angle, event=finished)
                 except ValueError:
                     print(f"Invalid angle value in instruction: {instruction}")
             elif instruction.startswith("f"):
                 try:
                     orientation = float(instruction[1:])
-                    self.face_controlled_deg(orientation, event=event)
+                    self.face_controlled_deg(orientation, event=finished)
                 except ValueError:
                     print(f"Invalid orientation value in instruction: {instruction}")
             elif instruction.startswith("r"):
                 try:
                     distance = float(instruction[1:])
-                    self.move_controlled_centimeters(distance, event=event)
+                    self.move_controlled_centimeters(distance, event=finished)
                 except ValueError:
                     print(f"Invalid distance value in instruction: {instruction}")
                     print("Queued moving instruction...")
             elif instruction.startswith("d"):
                 try:
                     delay = float(instruction[1:])
-                    self.delay_controlled(delay, event=event)
+                    self.delay_controlled(delay, event=finished)
                     print("Queued delay instruction...")
                 except ValueError:
                     print(f"Invalid delay value in instruction: {instruction}")
             else:
                 print(f"Unknown instruction: {instruction}")
-            while event.is_set():
+            while finished.is_set():
                 print("waiting...")
                 t.sleep(0.5)
 
