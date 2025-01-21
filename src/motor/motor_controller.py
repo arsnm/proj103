@@ -490,7 +490,7 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    odo = OdometryController(0, -0.25, 0)
+    odo = OdometryController(0, 0, 0)
     motor_controller = MotorController(odo)
     print("Starting executing instructions...")
     instr = args.instructions
