@@ -251,8 +251,8 @@ class MotorController:
         def command(angle, speed, event):
             if event:
                 event.clear()
-            if angle > pi:
-                angle = -(2 * pi - angle)
+            # if angle > pi:
+            #     angle = -(2 * pi - angle)
             if angle == 0.0:
                 return (0, 0)
             elif angle < 0.0:
