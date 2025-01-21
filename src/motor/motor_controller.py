@@ -474,7 +474,9 @@ class MotorController:
                     print(f"Invalid delay value in instruction: {instruction}")
             else:
                 print(f"Unknown instruction: {instruction}")
-            event.wait()
+            while event.is_set():
+                print("waiting...")
+                t.sleep(0.5)
 
     def shutdown(self):
         """Gracefully stop the worker thread and wait for it to finish."""
