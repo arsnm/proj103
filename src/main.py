@@ -1,5 +1,6 @@
 # Main script running the whole thing
 
+import threading
 from src.control.automatic import AutomaticController
 from src.control.target import TargetController
 from src.motor.motor_controller import MotorController
@@ -14,22 +15,21 @@ from src.config import *
 
 class RobotController:
     def __init__(self):
-        self.current_mode = None
-        self.current_mode = "manual"
         self.camera_controller = CameraController()
+        self.vision_controller = VisionController(self.camera_controller)
         self.odometry_controller = OdometryController()
         self.motor_controller = MotorController(self.odometry_controller)
         self.automatic_controller = AutomaticController(self.motor_controller)
         self.target_controller = TargetController(self.motor_controller)
-        self.vision_controller = VisionController(
-            self.camera_controller,
-            self.odometry_controller,
-            self.automatic_controller,
-            self.target_controller,
-        )
-        self.websocket_manager = WebSocketManager(NetworkConfig.WEBSOCKET_URI)
+        self.property_lock = threading.Lock()
+        self.vision_pos = None
+        self.odometry_pos = None
+        self.speed = None
+        self.mode = "manual"
+        self.update_property_thread = threading.Thread()
+        self.websocket_manager = WebSocketManager(NetworkConfig.WEBSOCKET_URI.value)
         self.tracking_server_manager = TrackingServerManager(
-            NetworkConfig.TRACKING_SERVER_URL
+            NetworkConfig.TRACKING_SERVER_URL.value
         )
         self.server = CombinedServer()
         # self.race_controller = race_controller()
@@ -55,34 +55,29 @@ class RobotController:
         new_mode = data["mode"]
         self.current_mode = new_mode
         if new_mode == "automatic":
-            # Reset position controller when entering automatic mode
-            self.position_controller.set_target_pose(self.target_position)
+            start = data.get("start", None)
+            self.mode = "automatic"
+            self.automatic_controller.run(start)
         elif new_mode == "manual":
-            pass
+            self.mode = "manual"
+            self.manual_controller.run()
         elif new_mode == "target":
-            pass
+            start = data.get("start", None)
+            target = data.get("target", None)
+            self.mode = "target"
+            self.target_controller.run(start, target)
         else:
             print(f"Invalid mode received: {new_mode}")
 
-    def handle_target_position(self, data: dict):
-        """Handle new target position"""
-        try:
-            new_target = float(data["x"]), float(data["y"])
-            self.target_position = new_target
-            if self.current_mode == RobotMode.AUTOMATIC:
-                self.position_controller.set_target_pose(new_target)
-        except (KeyError, ValueError) as e:
-            print(f"Invalid target position data: {e}")
-
     def handle_manual_control(self, data: dict):
         """Handle manual control commands"""
-        if self.current_mode != RobotMode.MANUAL:
+        if self.mode != "manual":
             return
 
         try:
-            left_speed = float(data["left"])
-            right_speed = float(data["right"])
-            self.cascaded_controller.set_target_velocities(left_speed, right_speed)
+            direction = float(data["direction"])
+            speed = float(data["speed"])
+            self.manual_controller.execute(direction, speed)
         except (KeyError, ValueError) as e:
             print(f"Invalid manual control data: {e}")
 
@@ -98,9 +93,11 @@ class RobotController:
     def stop(self):
         """Stop the robot system"""
         print("Stopping robot system...")
-        self.cascaded_controller.stop()
-        self.thread_controller.stop_all()
-        self.camera.release()
+        self.motor_controller.shutdown()
+        self.vision_controller.stop()
+        self.automatic_controller.stop()
+        self.target_controller.stop()
+        self.manual_controller.stop()
         print("Robot system stopped")
 
 

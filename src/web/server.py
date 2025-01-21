@@ -33,7 +33,7 @@ class CombinedServer:
         self.interfaces: Set[str] = set()
 
         # Web interface directory
-        self.web_dir = pathlib.Path(__file__).parent / "web_interface"
+        self.web_dir = pathlib.Path(__file__).parent
 
         # Create aiohttp app
         self.app = web.Application()

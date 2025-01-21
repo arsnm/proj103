@@ -80,3 +80,10 @@ class PositionConfig(Enum):
 class StrategyConfig(Enum):
     NB_COLUMN_TO_CHECK = 1
     MAX_FLAG_TO_CAPTURE = 2
+    RESPONSE_MOVEMENT = 202
+    RESPONSE_SUCESS = 200
+    MAX_RETRIES = 5
+    ID = 15
+    URL = "http://example.com"
+    CHECK_INTERVAL = 1.0
+    RETRY_DELAY = 5

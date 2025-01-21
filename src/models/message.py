@@ -9,7 +9,6 @@ class MessageType(Enum):
     # Robot -> Server messages
     ROBOT_STATUS = "robot_status"
     POSITION_UPDATE = "position_update"
-    VIDEO_FRAME = "video_frame"
 
     # Server -> Robot messages
     MODE_CHANGE = "mode_change"

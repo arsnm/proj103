@@ -69,29 +69,29 @@ if __name__ == "__main__":
     ap.add_argument(
         "-d",
         "--dir",
-        default=CalibrationConfig.DIR_CAL_IMAGE,
-        help=f"Path to folder containing checkerboard images for calibration (default={CalibrationConfig.DIR_CAL_IMAGE})",
+        default=CalibrationConfig.DIR_CAL_IMAGE.value,
+        help=f"Path to folder containing checkerboard images for calibration (default={CalibrationConfig.DIR_CAL_IMAGE.value})",
     )
     ap.add_argument(
         "-w",
         "--width",
         type=int,
-        default=CalibrationConfig.CHESS_WIDTH,
-        help=f"Width of checkerboard (default={CalibrationConfig.CHESS_WIDTH})",
+        default=CalibrationConfig.CHESS_WIDTH.value,
+        help=f"Width of checkerboard (default={CalibrationConfig.CHESS_WIDTH.value})",
     )
     ap.add_argument(
         "-t",
         "--height",
         type=int,
-        default=CalibrationConfig.CHESS_HEIGHT,
-        help=f"Width of checkerboard (default={CalibrationConfig.CHESS_HEIGHT})",
+        default=CalibrationConfig.CHESS_HEIGHT.value,
+        help=f"Width of checkerboard (default={CalibrationConfig.CHESS_HEIGHT.value})",
     )
     ap.add_argument(
         "-s",
         "--square_size",
         type=float,
-        default=CalibrationConfig.CHESS_SIZE,
-        help=f"Length of one edge (in meters)(default={CalibrationConfig.CHESS_SIZE})",
+        default=CalibrationConfig.CHESS_SIZE.value,
+        help=f"Length of one edge (in meters)(default={CalibrationConfig.CHESS_SIZE.value})",
     )
     ap.add_argument(
         "-v",
@@ -103,8 +103,8 @@ if __name__ == "__main__":
         "-o",
         "--output",
         type=str,
-        default=CalibrationConfig.CAL_FILE,
-        help=f"File in which the calibration will be saved (default={CalibrationConfig.CAL_FILE})",
+        default=CalibrationConfig.CAL_FILE.value,
+        help=f"File in which the calibration will be saved (default={CalibrationConfig.CAL_FILE.value})",
     )
 
     args = ap.parse_args()
@@ -121,4 +121,4 @@ if __name__ == "__main__":
     print("Distortion Coefficients:\n", dist)
     print("Total Error:", error)
 
-    np.savez(args.output, camera_matrix=mtx, dist_matrix=dist)
+    np.savez(args.output, camera_matrix=mtx, dist_coeffs=dist)

@@ -125,6 +125,7 @@ def pose_estimation_solve_pnp(
     return:-
     {"frame": frame
      "markers": [(id, x, y, angle_to_z_axis), ...]}
+     "matrix" : [(id, tvec, rvec)]
     """
 
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -136,6 +137,7 @@ def pose_estimation_solve_pnp(
 
     poses = {}  # marker: [(id, x, y, angle_with_optical_axis), ...]
     poses["markers"] = []
+    poses["matrix"] = []
 
     if len(corners) > 0:
         for i in range(0, len(ids)):
@@ -247,6 +249,7 @@ def pose_estimation_solve_pnp(
                 #     2,
                 # )
                 poses["markers"].append((ids[i], x, y, angle_to_z_axis))
+                poses["matrix"].append((ids[i], tvec, rvec))
 
     poses["frame"] = frame
     return poses

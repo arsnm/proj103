@@ -3,12 +3,15 @@ import os
 import time
 import argparse
 import platform
+import numpy as np
 from datetime import datetime
 from src.config import CameraConfig
 
 
 class CameraController:
-    def __init__(self, camera_index=0, save_directory="pictures"):
+    def __init__(
+        self, camera_index=0, save_directory="pictures", calibration_file=None
+    ):
         """
         Initialize the camera controller.
 
@@ -23,6 +26,11 @@ class CameraController:
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, CameraConfig.WIDTH.value)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CameraConfig.HEIGHT.value)
         self.cap.set(cv2.CAP_PROP_FPS, CameraConfig.FPS.value)
+
+        if calibration_file:
+            file = np.load(calibration_file)
+            self.mtx = file["camera_matrix"]
+            self.dist = file["dist_coeffs"]
 
         if not os.path.exists(self.save_directory):
             os.makedirs(self.save_directory)
@@ -88,8 +96,8 @@ if __name__ == "__main__":
 
         key = cv2.waitKey(1) & 0xFF
         if key == ord("c"):
-            print("Taking picture in 2s...")
-            time.sleep(2)
+            print("Taking picture in 0.3s...")
+            time.sleep(0.3)
             camera_controller.capture_image()
         elif key == ord("q"):
             print("Quitting...")

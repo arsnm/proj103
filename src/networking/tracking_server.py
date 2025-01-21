@@ -3,8 +3,9 @@ import aiohttp
 import asyncio
 from models.message import Message, MessageType
 from models.race import TeamStatus, MarkerStatus, RaceStatus
-from config import TrackingServerConfig
-from controllers.race_controller import RaceController
+from src.config import TrackingServerConfig
+from src.models.race import RaceStatus
+from src.utils.grid_navigation import match_coord_to_case
 
 
 class TrackingServerManager:
@@ -21,7 +22,7 @@ class TrackingServerManager:
         self.running = True
         self.connected = False
         self.team_id: int = TrackingServerConfig.TEAM_ID
-        self.race_controller = race_controller
+        self.race_status = None
         self.TEST_MODE = test_mode
 
     def connect(self):
@@ -56,7 +57,7 @@ class TrackingServerManager:
             print("[TEST_MODE] - Sent marker to tracking server")
             return
         id = self.team_id
-        x, y = marker_pos
+        x, y = marker_position
         row, col = match_coord_to_case(x, y)
         url = f"{self.url}/marker"
         params_list = [{"id": id, "col": col, "row": row}]
@@ -83,7 +84,7 @@ class TrackingServerManager:
                 if response.status in [200, 503]:
                     data = await response.text()
                     data = json.loads(data)
-                    self.race_controller.update_status(data)
+                    self.race_status = RaceStatus(data)
                 else:
                     print("ERROR - Could not receive race status from tracking server")
         except:

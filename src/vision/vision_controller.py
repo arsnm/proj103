@@ -22,23 +22,15 @@ class VisionController:
     def __init__(
         self,
         camera_controller: CameraController,
-        odometry_controller: OdometryController,
-        automatic_controller: AutomaticController,
-        target_controller: TargetController,
-        motor_controller: MotorController,
     ):
         self.camera = camera_controller
-        self.odometry_controller = odometry_controller
-        self.automatic_controller = automatic_controller
-        self.target_controller = target_controller
-        self.motor_controller = motor_controller
         self.position = (0, 0, 0)
         self.last_pos_update = -1
         self.last_frame = None
         self.running = False
         self.vision_thread = None
-        self.pos_lock = threading.Lock()
         self.flag_detected = {}
+        self.flag_detected_matrix = {}
 
     def start(self):
         self.running = True
@@ -95,11 +87,10 @@ class VisionController:
             output = pose_estimation_solve_pnp(
                 frame, ArucoConfig.ARUCO_DICT.value, self.camera.mtx, self.camera.dist
             )
-            self.pos_lock.acquire()
-            self.update_position(output["markers"])
-            self.pos_lock.release()
 
-            self.flag_detection(output["markers"])
+            self.update_position(output["markers"])
+
+            self.flag_detection(output["markers"], output["matrix"])
 
             # process.stdin.write(output["frame"].tobytes())
 
@@ -112,22 +103,7 @@ class VisionController:
         self.running = False
         if self.thread:
             self.thread.join()
-
-    def handle_error_odometry_vision(self):
-        odo_x, odo_y, odo_orientation = self.odometry_controller.get_position()
-        if abs(odo_x - self.position[0]) > PositionConfig.X_DIFF_THRESHOLD.value:
-            odo_x = (odo_x + self.position[0]) / 2
-        if abs(odo_y - self.position[1]) > PositionConfig.Y_DIFF_THRESHOLD.value:
-            odo_y = (odo_y + self.position[1]) / 2
-        if (
-            abs(odo_orientation - self.position[2])
-            > PositionConfig.ORIENTATION_DIFF_THRESHOLD.value
-        ):
-            odo_orientation = (odo_orientation + self.position[2]) / 2
-        self.pos_lock.acquire()
-        self.odometry_controller.reset_position(odo_x, odo_y, odo_orientation)
-        self.position = (odo_x, odo_y, odo_orientation)
-        self.pos_lock.release()
+            self.camera.release_camera()
 
     def update_position(self, list_marker):
         x, y, orientation = 0, 0, 0
@@ -152,10 +128,7 @@ class VisionController:
             self.position = x / count, y / count, orientation / count
             self.last_pos_update = time.time()
 
-        # self.handle_error_odometry_vision()
-
-    def flag_detection(self, list_marker):
-        flag_detected = []
+    def flag_detection(self, list_marker, list_matrix):
         for marker in list_marker:
             id, x_rel, y_rel, angle = marker
             if (
@@ -163,24 +136,24 @@ class VisionController:
                 and abs(angle) < ArucoConfig.FLAG_ANGLE_THRESHOLD.value
             ):
                 if id == 0:
-                    self.automatic_controller.notify_hint()
+                    # self.automatic_controller.notify_hint()
                     pass
 
-                elif id in range(5, 50) and id not in flag_detected:
+                elif id in range(5, 50) and id not in self.flag_detected:
                     self.flag_detected[id] = {
                         "x": self.position[0],
                         "y": self.position[1],
                     }
-                    self.motor_controller.turn_controlled_deg(360, no_wait=True)
+            for marker in list_matrix:
+                id, tvec, rvec = marker
+                if id == 0 or (id in range(5, 50) and id not in self.flag_detected):
+                    self.flag_detected_matrix[id] = (id, tvec, rvec)
+
+    def get_flags_matrix(self):
+        return self.flag_detected_matrix
+
+    def get_flags(self):
+        return self.flag_detected
 
     def get_position(self):
         return self.position
-
-    def get_safe_position(self):
-        self.pos_lock.acquire()
-        if time.time() - self.last_pos_update < 5:
-            position = self.get_position()
-        else:
-            position = self.odometry_controller.get_position()
-        self.pos_lock.release()
-        return position

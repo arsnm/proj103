@@ -5,31 +5,17 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize robot state
     const robotState = new RobotState();
 
-    // Initialize components
-    const gridView = new GridView(
-        document.getElementById('gridCanvas'),
-        robotState
-    );
-
     const videoFeed = new VideoFeed(
         document.getElementById('videoFeed')
     );
-    
+
     const controls = new RobotControls(wsConnection);
-    
+
     // Setup WebSocket message handlers
     wsConnection.on('robot_status', (data) => {
         robotState.update(data);
         updatePositionDisplay(data.pose);
     });
-    
-    wsConnection.on('video_frame', (data) => {
-        video.updateFrame(data.frame);
-    });
-    
-    wsConnection.on('race_status', (data) => {
-        raceState.updateStatus(data);
-    })
 
     function updatePositionDisplay(pose) {
         document.getElementById('posX').textContent = pose.x.toFixed(2);

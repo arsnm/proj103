@@ -1,8 +1,10 @@
 from src.utils.pid_controller import PIDController
+from src.utils.thread_safe_dequeue import ThreadSafeDeque
 from src.config import PIDConfig, MotorConfig, RobotDimensions, RateConfig
 from .odometry_controller import OdometryController
 import time as t
 import threading, queue, argparse
+
 from numpy import pi
 
 # import web_pdb
@@ -33,7 +35,7 @@ class MotorController:
         self.error = (0, 0)
         self.current_mode = "manual"
         self.update_frequency = RateConfig.MOTOR_FREQUENCY.value
-        self.command_queue = queue.Queue()
+        self.command_queue = ThreadSafeDeque()
         self.worker_thread = threading.Thread(
             target=self._command_processor, daemon=True
         )
@@ -50,7 +52,7 @@ class MotorController:
 
     def _command_processor(self):
         while True:
-            item = self.command_queue.get()
+            item = self.command_queue.pop()
             if item != ():
                 command, args = item
                 command(*args)
@@ -60,7 +62,7 @@ class MotorController:
                     continue
             if self.terminate_event.is_set():
                 print("Terminate event is set, finishing...")
-                self.command_queue.shutdown(immediate=True)
+                self.command_queue.clear()
                 break
 
     def update_raw_speed(self, speed):
@@ -99,10 +101,8 @@ class MotorController:
         self.odometry.update_position_from_ticks(*self.odometry_ticks)
         self.odometry_ticks = (0, 0)
 
-    def move_uncontrolled(self, direction: str, **kwargs):
+    def move_uncontrolled(self, direction: str, speed=None):
         """Basic movement without control."""
-        speed = kwargs.get("speed", None)
-        force = kwargs.get("force", False)
 
         if speed is not None:
             self.update_raw_speed(speed)
@@ -116,115 +116,28 @@ class MotorController:
             )
             return
 
-        if force:
-            self.switch_mode("manual")
-        if self.current_mode == "manual":
-            if direction == "forward":
-                self.controller.set_raw_motor_speed(speed, speed)
-            elif direction == "backward":
-                self.controller.set_raw_motor_speed(-speed, -speed)
-            elif direction == "right":
-                self.controller.set_raw_motor_speed(-speed, speed)
-            elif direction == "left":
-                self.controller.set_raw_motor_speed(speed, -speed)
-            elif direction == "stop":
-                self.controller.set_raw_motor_speed(0, 0)
+        if direction == "forward":
+            self.controller.set_raw_motor_speed(speed, speed)
+        elif direction == "backward":
+            self.controller.set_raw_motor_speed(-speed, -speed)
+        elif direction == "right":
+            self.controller.set_raw_motor_speed(-speed, speed)
+        elif direction == "left":
+            self.controller.set_raw_motor_speed(speed, -speed)
+        elif direction == "stop":
+            self.controller.set_raw_motor_speed(0, 0)
         else:
-            print(
-                "ERROR - Cannot move manually if current_mode is not set to 'manual'."
-            )
-        # def update_controlled(self, target_ticks, direction: int, type):
-        #     # type == True -> move
-        #     # type == False --> turn
-        #
-        #     print("Updating controlled movements...")
-        #     dt = 1 / self.update_frequency
-        #     correction = 0
-        #     odometry_rate = 1 / RateConfig.ODOMETRY_FREQUENCY
-        #     next_odometry_update = t.time() + odometry_rate
-        #     remaining_left, remaining_right = target_ticks
-        #
-        #     next_update = t.time() + dt
-        #
-        #     while not self.stop_event.is_set() and not self.terminate_event.is_set():
-        #
-        #         # NOTE: time between two updates must be higher than the time it takes to compute PID
-        #
-        #         overshoot_interval = int(
-        #             2 * 100 * dt * (self.speed + abs(correction))
-        #         )  # speed in ticks/0.01s
-        #
-        #         # log
-        #         print(
-        #             f"update_control at {t.time()} : {overshoot_interval}, {remaining_left}, {remaining_right}, {correction}"
-        #         )
-        #
-        #         while (
-        #             abs(remaining_left) < overshoot_interval
-        #             or abs(remaining_right) < overshoot_interval
-        #         ):
-        #             self.speed //= 3
-        #             overshoot_interval = int(2 * 100 * dt * (self.speed + abs(correction)))
-        #         if self.speed <= 2:
-        #             self.stop_event.set()
-        #             break
-        #
-        #         speed_oriented = -direction * self.speed
-        #         if type:
-        #             print(
-        #                 f"set speed : {speed_oriented + correction}, {speed_oriented - correction}"
-        #             )
-        #             self.controller.set_motor_speed(
-        #                 speed_oriented + correction, speed_oriented - correction
-        #             )
-        #         else:
-        #             self.controller.set_motor_speed(
-        #                 -speed_oriented + correction, speed_oriented + correction
-        #             )
-        #
-        #         t.sleep(max(next_update - t.time(), 0))
-        #         next_update = t.time() + dt
-        #
-        #         ticks = self.controller.get_encoder_ticks()
-        #         print(f"ticks:{ticks}")
-        #
-        #         remaining_left -= ticks[0]
-        #         remaining_right -= ticks[1]
-        #
-        #         self.odometry_ticks = (
-        #             self.odometry_ticks[0] + ticks[0],
-        #             self.odometry_ticks[1] + ticks[1],
-        #         )
-        #         if t.time() > next_odometry_update:
-        #             self.odometry.update_position_from_ticks(*self.odometry_ticks)
-        #             self.odometry_ticks = (0, 0)
-        #             next_odometry_update += odometry_rate
-        #
-        #         if type:
-        #             error = (remaining_left - remaining_right) * 0.01 / dt
-        #         else:
-        #             error = (remaining_left + remaining_right) * 0.01 / dt
-        #         print(f"Error: {error}")
-        #
-        #         try:
-        #             if self.pid is not None:  # should always be true
-        #                 correction = self.pid.compute(error, dt)
-        #             else:
-        #                 self.controller.standby()
-        #                 raise ValueError("PID was not correctly initialized")
-        #         except ValueError as e:
-        #             print(f"ERROR - {e}")
-        #
-        #     self.controller.standby()
-        #     ticks = self.controller.get_encoder_ticks()
-        #     self.odometry.update_position_from_ticks(ticks[0], ticks[1], True)
+            print(f"ERROR - Provided direction ({direction}) is not supported.")
 
     def move_controlled(self, distance: float, **kwargs):
         """Controlled movement with position feedback."""
         speed = kwargs.get("speed", None)
         no_wait = kwargs.get("no_wait", False)
+        event = kwargs.get("event", None)
 
-        def command(distance, speed):
+        def command(distance, speed, event):
+            if event:
+                event.set()
             if distance == 0:
                 return (0, 0)
             elif distance < 0.0:
@@ -235,7 +148,7 @@ class MotorController:
             if speed is not None:
                 self.update_speed(speed)
             else:
-                self.update_speed(MotorConfig.DEFAULT_MOVING_SPEED)
+                self.update_speed(MotorConfig.DEFAULT_MOVING_SPEED.value)
 
             if self.test_mode:
                 print(
@@ -243,16 +156,16 @@ class MotorController:
                 )
                 return
 
-            target_ticks = int(distance * RobotDimensions.TICKS_PER_METER)
+            target_ticks = int(distance * RobotDimensions.TICKS_PER_METER.value)
             remaining_left = remaining_right = target_ticks
 
-            motor_rate = 1 / RateConfig.MOTOR_FREQUENCY
-            odometry_rate = 1 / RateConfig.ODOMETRY_FREQUENCY
+            motor_rate = 1 / RateConfig.MOTOR_FREQUENCY.value
+            odometry_rate = 1 / RateConfig.ODOMETRY_FREQUENCY.value
 
             pid = init_pid(
                 0,
-                -MotorConfig.MAX_SPEED - self.speed,
-                MotorConfig.MAX_SPEED - self.speed,
+                -MotorConfig.MAX_SPEED.value - self.speed,
+                MotorConfig.MAX_SPEED.value - self.speed,
             )
 
             correction = 0
@@ -265,6 +178,8 @@ class MotorController:
             next_update_motor = t.time() + motor_rate
 
             while not self.stop_event.is_set() and not self.terminate_event.is_set():
+                if event is not None and event.is_set():
+                    break
                 overshoot_interval = (
                     2 * 100 * motor_rate * (self.speed + abs(correction))
                 )
@@ -312,22 +227,27 @@ class MotorController:
             self.controller.standby()
             self.update_odometry()
 
-            t.sleep(0.5)
+            t.sleep(0.3)
 
+            if event:
+                event.clear()
             return (remaining_left, remaining_right)
 
-        item = (command, (distance, speed))
+        item = (command, (distance, speed, event))
         if no_wait:
-            self.add_command_to_front(item)
+            self.command_queue.appendleft(item)
         else:
-            self.command_queue.put(item)
+            self.command_queue.append(item)
 
     def turn_controlled(self, angle: float, **kwargs):
         """Controlled rotation with position feedback."""
         speed = kwargs.get("speed", None)
         no_wait = kwargs.get("no_wait", False)
+        event = kwargs.get("event", None)
 
-        def command(angle, speed):
+        def command(angle, speed, event):
+            if event:
+                event.set()
             if angle > pi:
                 angle = -(2 * pi - angle)
             if angle == 0.0:
@@ -372,6 +292,9 @@ class MotorController:
             speed_oriented = side * self.speed
 
             while not self.stop_event.is_set() and not self.terminate_event.is_set():
+                if event is not None and event.is_set():
+                    break
+
                 overshoot_interval = (
                     2 * 100 * motor_rate * (self.speed + abs(correction))
                 )
@@ -384,7 +307,7 @@ class MotorController:
                     speed_oriented = side * self.speed
 
                 if self.speed <= 2:
-                    break
+                    self.stop_event.set()
 
                 self.controller.set_motor_speed(
                     -speed_oriented + correction, speed_oriented + correction
@@ -414,15 +337,17 @@ class MotorController:
             self.controller.standby()
             self.update_odometry()
 
-            t.sleep(0.5)
+            t.sleep(0.3)
 
+            if event:
+                event.clear()
             return (remaining_left, remaining_right)
 
-        item = (command, (angle, speed))
+        item = (command, (angle, speed, event))
         if no_wait:
-            self.add_command_to_front(item)
+            self.command_queue.appendleft(item)
         else:
-            self.command_queue.put(item)
+            self.command_queue.append(item)
 
     def get_speed(self):
         """Get current motor speeds."""
@@ -431,9 +356,12 @@ class MotorController:
     def delay_controlled(self, delay, **kwargs):
         """Add a delay between movements."""
         no_wait = kwargs.get("no_wait", False)
+        event = kwargs.get("event", None)
 
-        def command(delay):
+        def command(delay, event):
             start_time = t.time()
+            if event:
+                event.set()
             while True:
                 remaining = delay - (t.time() - start_time)
                 if remaining <= 0:
@@ -442,36 +370,43 @@ class MotorController:
                     timeout=remaining
                 ):
                     break
+            event.clear()
 
-        item = (command, (delay,))
+        item = (command, (delay, event))
         if no_wait:
-            self.add_command_to_front(item)
+            self.command_queue.appendleft(item)
         else:
-            self.command_queue.put(item)
+            self.command_queue.append(item)
 
     def turn_controlled_deg(self, angle, **kwargs):
         speed = kwargs.get("speed", None)
         no_wait = kwargs.get("no_wait", False)
+        event = kwargs.get("event", None)
         angle *= pi / 180
-        self.turn_controlled(angle, speed=speed, no_wait=no_wait)
+        self.turn_controlled(angle, speed=speed, no_wait=no_wait, event=event)
 
     def face_controlled(self, orientation, **kwargs):
         speed = kwargs.get("speed", None)
         no_wait = kwargs.get("no_wait", False)
+        event = kwargs.get("event", None)
         orientation %= 2 * pi
         angle = orientation - self.odometry.get_position()[2]
-        self.turn_controlled(angle, speed=speed, no_wait=no_wait)
+        self.turn_controlled(angle, speed=speed, no_wait=no_wait, event=event)
 
     def face_controlled_deg(self, orientation, **kwargs):
         speed = kwargs.get("speed", None)
         no_wait = kwargs.get("no_wait", False)
-        self.face_controlled(orientation * pi / 180, speed=speed, no_wait=no_wait)
+        event = kwargs.get("event", None)
+        self.face_controlled(
+            orientation * pi / 180, speed=speed, no_wait=no_wait, event=event
+        )
 
     def move_controlled_centimeters(self, distance, **kwargs):
         speed = kwargs.get("speed", None)
         no_wait = kwargs.get("no_wait", False)
+        event = kwargs.get("event", None)
         distance /= 100
-        self.move_controlled(distance, speed=speed, no_wait=no_wait)
+        self.move_controlled(distance, speed=speed, no_wait=no_wait, event=event)
 
     def terminate_controlled(self):
         print("Interrupting all the ongoing controlled movements...")
@@ -481,44 +416,21 @@ class MotorController:
     def clear_command_queue(self, immediate=False):
         if immediate:
             self.stop_event.set()
-        self.command_queue.shutdown(True)
-        self.command_queue = queue.Queue()
+        self.command_queue.clear()
         self.stop_event.clear()
-
-    def switch_mode(self, mode, clear=True):
-        if mode == self.current_mode:
-            pass
-        elif mode == "manual":  # manual mode clear the queue by default
-            self.clear_command_queue(True)
-
-        def command(mode):
-            self.current_mode = mode
-
-        if clear:
-            self.clear_command_queue(True)
-        else:
-            self.command_queue.put((command, (mode,)))
-
-    def add_command_to_front(self, command):
-        """Add a command to the front of the queue."""
-        with self.command_queue.mutex:
-            self.command_queue.queue.appendleft(command)
 
     def _target_started(self, event):
         def command(event):
             event.set()
 
-        self.command_queue.put((command, (event,)))
+        self.command_queue.append((command, (event,)))
 
     def _target_achivied(self, event):
 
         def command(event):
             event.clear()
 
-        self.command_queue.put((command, (event,)))
-
-    def _automatic_case_done(self, event):
-        pass
+        self.command_queue.append((command, (event,)))
 
     def execute_instructions(self, instructions):
         """Translate a list of instructions into movement executions."""
@@ -559,7 +471,7 @@ class MotorController:
         print("Shutting down worker thread...")
         self.command_queue.join()
         self.terminate_event.set()
-        self.command_queue.put(())  # Ensure the queue isn't blocking
+        self.command_queue.append(())  # Ensure the queue isn't blocking
         self.worker_thread.join()  # Wait for the thread to finish
         print("Worker thread shut down successfully.")
 

@@ -2,3 +2,4 @@ numpy
 websockets
 aiohttp
 opencv-python
+requests

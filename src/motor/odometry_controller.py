@@ -12,7 +12,7 @@ class OdometryController:
         self.error_ticks = (0, 0)
         self.orientation = start_orientation  # in rad, 0 is north, pi/2 is west
         self.orientation_deg = int(degrees(start_orientation))
-        self.lock = Lock()
+        self._lock = Lock()
 
     def update_position_from_ticks(self, ticks_left, ticks_right, small_error=False):
 
@@ -20,58 +20,57 @@ class OdometryController:
         ticks_left *= -1
         ticks_right *= -1
 
-        self.lock.acquire
-        if ticks_left * ticks_right < 0:  # opposite direction -> turned
-            if ticks_left >= 0:  # turned left
-                self.orientation += (
-                    min(ticks_left, -ticks_right) / RobotDimensions.TICKS_PER_RAD
+        with self._lock:
+            if ticks_left * ticks_right < 0:  # opposite direction -> turned
+                if ticks_left >= 0:  # turned left
+                    self.orientation += (
+                        min(ticks_left, -ticks_right) / RobotDimensions.TICKS_PER_RAD
+                    )
+                    self.orientation %= 2 * pi
+                    self.orientation_deg = int(degrees(self.orientation))
+                    error_left, error_right = ticks_left - min(
+                        ticks_left, -ticks_right
+                    ), ticks_right + min(ticks_left, -ticks_right)
+                else:
+                    self.orientation -= (
+                        min(-ticks_left, +ticks_right) / RobotDimensions.TICKS_PER_RAD
+                    )
+                    self.orientation %= 2 * pi
+                    self.orientation_deg = int(degrees(self.orientation))
+                    error_left, error_right = ticks_left + min(
+                        -ticks_left, ticks_right
+                    ), ticks_right - min(-ticks_left, ticks_right)
+            else:  # same direction -> moved
+                if ticks_left < 0:  # moved backward
+                    direction = -1
+                else:
+                    direction = 1
+                ticks = min(abs(ticks_left), abs(ticks_right))
+                self.x += (
+                    direction
+                    * ticks
+                    * sin(self.orientation)
+                    / RobotDimensions.TICKS_PER_METER
                 )
-                self.orientation %= 2 * pi
-                self.orientation_deg = int(degrees(self.orientation))
-                error_left, error_right = ticks_left - min(
-                    ticks_left, -ticks_right
-                ), ticks_right + min(ticks_left, -ticks_right)
-            else:
-                self.orientation -= (
-                    min(-ticks_left, +ticks_right) / RobotDimensions.TICKS_PER_RAD
+                self.y += (
+                    direction
+                    * ticks
+                    * cos(self.orientation)
+                    / RobotDimensions.TICKS_PER_METER
                 )
-                self.orientation %= 2 * pi
-                self.orientation_deg = int(degrees(self.orientation))
-                error_left, error_right = ticks_left + min(
-                    -ticks_left, ticks_right
-                ), ticks_right - min(-ticks_left, ticks_right)
-        else:  # same direction -> moved
-            if ticks_left < 0:  # moved backward
-                direction = -1
-            else:
-                direction = 1
-            ticks = min(abs(ticks_left), abs(ticks_right))
-            self.x += (
-                direction
-                * ticks
-                * sin(self.orientation)
-                / RobotDimensions.TICKS_PER_METER
-            )
-            self.y += (
-                direction
-                * ticks
-                * cos(self.orientation)
-                / RobotDimensions.TICKS_PER_METER
-            )
-            error_left, error_right = (
-                ticks_left - direction * ticks,
-                ticks_right - direction * ticks,
-            )
+                error_left, error_right = (
+                    ticks_left - direction * ticks,
+                    ticks_right - direction * ticks,
+                )
 
-        if small_error:
-            self.handle_small_error(error_left, error_right)
-            self.error_ticks = (0, 0)
-        else:
-            self.error_ticks = (
-                self.error_ticks[0] + error_left,
-                self.error_ticks[1] + error_right,
-            )
-        self.lock.release()
+            if small_error:
+                self.handle_small_error(error_left, error_right)
+                self.error_ticks = (0, 0)
+            else:
+                self.error_ticks = (
+                    self.error_ticks[0] + error_left,
+                    self.error_ticks[1] + error_right,
+                )
 
     def get_position(self):
         return (self.x, self.y, self.orientation_deg)
@@ -88,12 +87,11 @@ class OdometryController:
         self.orientation_deg = int(degrees(self.orientation))
 
     def reset_position(self, x=0, y=0, orientation=0):
-        self.lock.acquire()
-        self.x = x
-        self.y = y
-        self.orientation = orientation % (2 * pi)
-        self.update_orientation_degrees()
-        self.lock.release()
+        with self._lock:
+            self.x = x
+            self.y = y
+            self.orientation = orientation % (2 * pi)
+            self.update_orientation_degrees()
 
     def handle_error(self):
         self.update_position_from_ticks(*self.error_ticks, True)

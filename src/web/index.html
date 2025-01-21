@@ -20,21 +20,15 @@
         </header>
 
         <main>
-            <div class="grid-section">
-                <canvas id="gridCanvas"></canvas>
-                <div class="grid-controls">
-                    <button id="setTargetBtn">Set Target</button>
-                    <button id="clearTargetBtn">Clear Target</button>
-                </div>
-            </div>
-
             <div class="control-section">
                 <div class="mode-selector">
                     <button id="manualModeBtn" class="active">Manual Mode</button>
                     <button id="autoModeBtn">Automatic Mode</button>
+                    <button id="groupModeBtn">Group Mode</button>
+                    <button id="targetModeBtn">Target Mode</button>
                 </div>
 
-                <div class="manual-controls">
+                <div class="manual-controls active">
                     <div class="speed-controls">
                         <label>Speed: <span id="speedValue">50</span>%</label>
                         <input type="range" id="speedSlider" min="0" max="100" value="50">
@@ -47,7 +41,39 @@
                         <button id="backBtn" class="arrow-btn down">↓</button>
                     </div>
                 </div>
+
+                <div class="automatic-information">
+                    <div id="position">Position: (0, 0, 0)</div>
+                    <div id="speed">Speed: (0, 0)</div>
+                    <div id="target">Target: (0, 0)</div>
+                </div>
+
+                <div class="group-information">
+                    <div id="position">Position: (0, 0, 0)</div>
+                    <div id="speed">Speed: (0, 0)</div>
+                    <div id="target">Target: (0, 0)</div>
+                </div>
+
+                <div class="target-controls">
+                    <div class="target-toggle">
+                        <button class="active">Coordinates</button>
+                        <button>Case</button>
+                    </div>
+
+                    <div class="coordinates-container active">
+                        <input type="text" id="coordX" placeholder="X">
+                        <input type="text" id="coordY" placeholder="Y">
+                    </div>
+
+                    <div class="case-container">
+                        <input type="text" id="case" placeholder="Case (e.g., A1)">
+                    </div>
+
+                    <button id="sendTarget">Send Target</button>
+                </div>
+
             </div>
+
             <div class="container">
                 <h1>Robot Vision Stream</h1>
                     <div class="video-container">
@@ -74,7 +100,6 @@
     <script src="static/js/robotState.js"></script>
     <script src="static/js/raceState.js"></script>
     <script src="static/js/controls.js"></script>
-    <script src="static/js/gridView.js"></script>
     <script src="static/js/videoPlayer.js"></script>
     <script src="static/js/main.js"></script>
 </body>
