@@ -61,10 +61,11 @@ class MotorController:
                 try:
                     self.command_queue.task_done()
                 except ValueError:
-                    continue
+                    # log
+                    print("Got value error")
             if self.terminate_event.is_set():
                 print("Terminate event is set, finishing...")
-                self.command_queue.clear()
+                self.clear_command_queue()
                 break
 
     def update_raw_speed(self, speed):
@@ -153,7 +154,8 @@ class MotorController:
                 self.update_speed(MotorConfig.DEFAULT_MOVING_SPEED.value)
 
             if self.test_mode:
-                event.set()
+                if event:
+                    event.set()
                 print(
                     f"TEST - Robot should move controlled at speed {self.speed} for {direction * distance}m."
                 )
@@ -265,7 +267,8 @@ class MotorController:
                 self.update_speed(MotorConfig.DEFAULT_ROTATING_SPEED.value)
 
             if self.test_mode:
-                event.set()
+                if event:
+                    event.set()
                 print(
                     f"TEST - Robot should turn controlled {side * angle}rad at speed {self.speed}."
                 )
