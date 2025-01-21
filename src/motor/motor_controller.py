@@ -442,10 +442,10 @@ class MotorController:
         """Translate a list of instructions into movement executions."""
         instruction_list = instructions.split(",")
         event = threading.Event()
+        count = 0
         print(f"Instructions List : {instruction_list}")
         for instruction in instruction_list:
             instruction = instruction.strip()
-            event.wait()
             if instruction.startswith("a"):
                 try:
                     angle = float(instruction[1:])
@@ -474,6 +474,7 @@ class MotorController:
                     print(f"Invalid delay value in instruction: {instruction}")
             else:
                 print(f"Unknown instruction: {instruction}")
+            event.wait()
 
     def shutdown(self):
         """Gracefully stop the worker thread and wait for it to finish."""
