@@ -54,6 +54,8 @@ class MotorController:
         while True:
             item = self.command_queue.get()
             if item != ():
+                # log
+                print("poped out command")
                 command, args = item
                 command(*args)
                 try:
@@ -151,6 +153,7 @@ class MotorController:
                 self.update_speed(MotorConfig.DEFAULT_MOVING_SPEED.value)
 
             if self.test_mode:
+                event.clear()
                 print(
                     f"TEST - Robot should move controlled at speed {self.speed} for {direction * distance}m."
                 )
@@ -264,6 +267,7 @@ class MotorController:
                 self.update_speed(MotorConfig.DEFAULT_ROTATING_SPEED.value)
 
             if self.test_mode:
+                event.clear()
                 print(
                     f"TEST - Robot should turn controlled {side * angle}rad at speed {self.speed}."
                 )
