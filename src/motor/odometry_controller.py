@@ -24,7 +24,8 @@ class OdometryController:
             if ticks_left * ticks_right < 0:  # opposite direction -> turned
                 if ticks_left >= 0:  # turned left
                     self.orientation += (
-                        min(ticks_left, -ticks_right) / RobotDimensions.TICKS_PER_RAD
+                        min(ticks_left, -ticks_right)
+                        / RobotDimensions.TICKS_PER_RAD.value
                     )
                     self.orientation %= 2 * pi
                     self.orientation_deg = int(degrees(self.orientation))
@@ -33,7 +34,8 @@ class OdometryController:
                     ), ticks_right + min(ticks_left, -ticks_right)
                 else:
                     self.orientation -= (
-                        min(-ticks_left, +ticks_right) / RobotDimensions.TICKS_PER_RAD
+                        min(-ticks_left, +ticks_right)
+                        / RobotDimensions.TICKS_PER_RAD.value
                     )
                     self.orientation %= 2 * pi
                     self.orientation_deg = int(degrees(self.orientation))
@@ -50,13 +52,13 @@ class OdometryController:
                     direction
                     * ticks
                     * sin(self.orientation)
-                    / RobotDimensions.TICKS_PER_METER
+                    / RobotDimensions.TICKS_PER_METER.value
                 )
                 self.y += (
                     direction
                     * ticks
                     * cos(self.orientation)
-                    / RobotDimensions.TICKS_PER_METER
+                    / RobotDimensions.TICKS_PER_METER.value
                 )
                 error_left, error_right = (
                     ticks_left - direction * ticks,
@@ -101,17 +103,17 @@ class OdometryController:
     ):  # will be executed at the end of each movement
         # NOTE: one error should always be 0 if things are done properly
         if error_left == 0:  # turned and moved right
-            circle_arc = error_right / RobotDimensions.TICKS_PER_METER
-            delta_theta = circle_arc / RobotDimensions.WHEEL_BASE
-            pivot_x = self.x + RobotDimensions.WHEEL_BASE * sin(self.orientation)
-            pivot_y = self.y - RobotDimensions.WHEEL_BASE * cos(self.orientation)
+            circle_arc = error_right / RobotDimensions.TICKS_PER_METER.value
+            delta_theta = circle_arc / RobotDimensions.WHEEL_BASE.value
+            pivot_x = self.x + RobotDimensions.WHEEL_BASE.value * sin(self.orientation)
+            pivot_y = self.y - RobotDimensions.WHEEL_BASE.value * cos(self.orientation)
             self.orientation += delta_theta
             self.orientation %= 2 * pi
         elif error_right == 0:  # turned and moved left
-            circle_arc = error_left / RobotDimensions.TICKS_PER_METER
-            delta_theta = circle_arc / RobotDimensions.WHEEL_BASE
-            pivot_x = self.x - RobotDimensions.WHEEL_BASE * sin(self.orientation)
-            pivot_y = self.y + RobotDimensions.WHEEL_BASE * cos(self.orientation)
+            circle_arc = error_left / RobotDimensions.TICKS_PER_METER.value
+            delta_theta = circle_arc / RobotDimensions.WHEEL_BASE.value
+            pivot_x = self.x - RobotDimensions.WHEEL_BASE.value * sin(self.orientation)
+            pivot_y = self.y + RobotDimensions.WHEEL_BASE.value * cos(self.orientation)
             self.orientation -= delta_theta
         else:
             raise ValueError("ERROR - error in ticks was not properly handled")
