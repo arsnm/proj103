@@ -436,8 +436,6 @@ class MotorController:
     def execute_instructions(self, instructions):
         """Translate a list of instructions into movement executions."""
         instruction_list = instructions.split(",")
-        finished = threading.Event()
-        finished.clear()
         count = 0
         print(f"Instructions List : {instruction_list}")
         for instruction in instruction_list:
@@ -445,26 +443,26 @@ class MotorController:
             if instruction.startswith("a"):
                 try:
                     angle = float(instruction[1:])
-                    self.turn_controlled_deg(angle, event=finished)
+                    self.turn_controlled_deg(angle)
                 except ValueError:
                     print(f"Invalid angle value in instruction: {instruction}")
             elif instruction.startswith("f"):
                 try:
                     orientation = float(instruction[1:])
-                    self.face_controlled_deg(orientation, event=finished)
+                    self.face_controlled_deg(orientation)
                 except ValueError:
                     print(f"Invalid orientation value in instruction: {instruction}")
             elif instruction.startswith("r"):
                 try:
                     distance = float(instruction[1:])
-                    self.move_controlled_centimeters(distance, event=finished)
+                    self.move_controlled_centimeters(distance)
                 except ValueError:
                     print(f"Invalid distance value in instruction: {instruction}")
                     print("Queued moving instruction...")
             elif instruction.startswith("d"):
                 try:
                     delay = float(instruction[1:])
-                    self.delay_controlled(delay, event=finished)
+                    self.delay_controlled(delay)
                     print("Queued delay instruction...")
                 except ValueError:
                     print(f"Invalid delay value in instruction: {instruction}")
