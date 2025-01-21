@@ -309,7 +309,7 @@ class MotorController:
                     speed_oriented = side * self.speed
 
                 if self.speed <= 2:
-                    self.stop_event.set()
+                    break
 
                 self.controller.set_motor_speed(
                     -speed_oriented + correction, speed_oriented + correction
