@@ -2,8 +2,8 @@ from src.config import GridDimensions
 from numpy import pi
 
 case_size = GridDimensions.GRID_CASE.value
-grid_size_x = GridDimensions.GRID_SIZE[0].value * case_size
-grid_size_y = GridDimensions.GRID_SIZE[1].value * case_size
+grid_size_x = GridDimensions.GRID_SIZE.value[0] * case_size
+grid_size_y = GridDimensions.GRID_SIZE.value[1] * case_size
 
 
 def match_coord_to_case(x, y):
