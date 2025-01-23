@@ -91,7 +91,7 @@ class GroupController:
                 time.sleep(self.check_interval)
 
     def _send_check(self):
-        id = str(self.id - 1)
+        id = 4
         response = requests.post(f"{self.server_url}/api/check?id={id}")
 
         if response.status_code == StrategyConfig.RESPONSE_MOVEMENT.value:
