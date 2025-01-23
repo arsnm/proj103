@@ -81,7 +81,7 @@ class PositionConfig(Enum):
 class StrategyConfig(Enum):
     NB_COLUMN_TO_CHECK = 1
     MAX_FLAG_TO_CAPTURE = 2
-    RESPONSE_MOVEMENT = 202
+    RESPONSE_MOVEMENT = 200
     RESPONSE_SUCESS = 200
     MAX_RETRIES = 5
     ID = 15

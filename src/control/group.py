@@ -91,77 +91,97 @@ class GroupController:
                 time.sleep(self.check_interval)
 
     def _send_check(self):
-        """Send a single check request to the server with retry logic."""
-        retry_count = 0
-
         headers = {"id": str(self.id - 1)}
+        response = requests.post(self.server_url, headers=headers, timeout=5)
 
-        while retry_count < self.max_retries:
+        if response.status_code == StrategyConfig.RESPONSE_MOVEMENT.value:
             try:
-                start_time = time.time()
-                response = requests.get(self.server_url, headers=headers, timeout=5)
-                response_time = (
-                    time.time() - start_time
-                ) * 1000  # Convert to milliseconds
-
-                if response.status_code == StrategyConfig.RESPONSE_SUCESS.value:
-                    if self.consecutive_failures > 0:
-                        print(
-                            f"Connection restored after {self.consecutive_failures} failures!"
-                        )
+                json_data = response.json()
+                if isinstance(json_data, list) and len(json_data):
                     self.consecutive_failures = 0
-                    # Only print every 10 successful checks to reduce output
-                    if int(time.time()) % 10 == 0:
-                        print(f"Server is UP - Response time: {response_time:.2f}ms")
+                    print(json_data)
+                    self.execute_instructions(json_data)
+                else:
+                    print(f"Unexpected JSON format: {json_data}")
                     return
-
-                elif response.status_code == StrategyConfig.RESPONSE_MOVEMENT.value:
-                    try:
-                        json_data = response.json()
-                        if isinstance(json_data, list) and len(json_data):
-                            self.consecutive_failures = 0
-                            print(json_data)
-                            self.execute_instructions(json_data)
-                        else:
-                            print(f"Unexpected JSON format: {json_data}")
-                            return
-                    except json.JSONDecodeError:
-                        print("ERROR - Failed to decode JSON response")
-                        return
-                else:
-                    print(f"Server returned status code {response.status_code}")
-
-            except requests.exceptions.ConnectionError:
-                self.consecutive_failures += 1
-                retry_count += 1
-
-                if retry_count < self.max_retries:
-                    print(
-                        f"ERROR - Connection failed - Retrying in {self.retry_delay} seconds... (Attempt {retry_count + 1}/{self.max_retries})"
-                    )
-                    time.sleep(self.retry_delay)
-                else:
-                    print(
-                        f"ERROR - Connection failed after {self.max_retries} attempts - Server might be down"
-                    )
-
-            except requests.exceptions.Timeout:
-                self.consecutive_failures += 1
-                retry_count += 1
-
-                if retry_count < self.max_retries:
-                    print(
-                        f"Request timed out - Retrying in {self.retry_delay} seconds... (Attempt {retry_count + 1}/{self.max_retries})"
-                    )
-                    time.sleep(self.retry_delay)
-                else:
-                    print(
-                        f"ERROR - Request timed out after {self.max_retries} attempts"
-                    )
-
-            except Exception as e:
-                print(f"ERROR - Unexpected error: {str(e)}")
+            except json.JSONDecodeError:
+                print("ERROR - Failed to decode JSON response")
                 return
+        else:
+            print(f"Server returned status code {response.status_code}")
+
+    # def _send_check(self):
+    #     """Send a single check request to the server with retry logic."""
+    #     retry_count = 0
+    #
+    #     headers = {"id": str(self.id - 1)}
+    #
+    #     while retry_count < self.max_retries:
+    #         try:
+    #             start_time = time.time()
+    #             response = requests.get(self.server_url, headers=headers, timeout=5)
+    #             response_time = (
+    #                 time.time() - start_time
+    #             ) * 1000  # Convert to milliseconds
+    #
+    #             if response.status_code == StrategyConfig.RESPONSE_SUCESS.value:
+    #                 if self.consecutive_failures > 0:
+    #                     print(
+    #                         f"Connection restored after {self.consecutive_failures} failures!"
+    #                     )
+    #                 self.consecutive_failures = 0
+    #                 # Only print every 10 successful checks to reduce output
+    #                 if int(time.time()) % 10 == 0:
+    #                     print(f"Server is UP - Response time: {response_time:.2f}ms")
+    #                 return
+    #
+    #             elif response.status_code == StrategyConfig.RESPONSE_MOVEMENT.value:
+    #                 try:
+    #                     json_data = response.json()
+    #                     if isinstance(json_data, list) and len(json_data):
+    #                         self.consecutive_failures = 0
+    #                         print(json_data)
+    #                         self.execute_instructions(json_data)
+    #                     else:
+    #                         print(f"Unexpected JSON format: {json_data}")
+    #                         return
+    #                 except json.JSONDecodeError:
+    #                     print("ERROR - Failed to decode JSON response")
+    #                     return
+    #             else:
+    #                 print(f"Server returned status code {response.status_code}")
+    #
+    #         except requests.exceptions.ConnectionError:
+    #             self.consecutive_failures += 1
+    #             retry_count += 1
+    #
+    #             if retry_count < self.max_retries:
+    #                 print(
+    #                     f"ERROR - Connection failed - Retrying in {self.retry_delay} seconds... (Attempt {retry_count + 1}/{self.max_retries})"
+    #                 )
+    #                 time.sleep(self.retry_delay)
+    #             else:
+    #                 print(
+    #                     f"ERROR - Connection failed after {self.max_retries} attempts - Server might be down"
+    #                 )
+    #
+    #         except requests.exceptions.Timeout:
+    #             self.consecutive_failures += 1
+    #             retry_count += 1
+    #
+    #             if retry_count < self.max_retries:
+    #                 print(
+    #                     f"Request timed out - Retrying in {self.retry_delay} seconds... (Attempt {retry_count + 1}/{self.max_retries})"
+    #                 )
+    #                 time.sleep(self.retry_delay)
+    #             else:
+    #                 print(
+    #                     f"ERROR - Request timed out after {self.max_retries} attempts"
+    #                 )
+    #
+    #         except Exception as e:
+    #             print(f"ERROR - Unexpected error: {str(e)}")
+    #             return
 
 
 # Example usage
