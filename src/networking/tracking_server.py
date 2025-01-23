@@ -114,17 +114,3 @@ class TrackingServerManager:
     def stop(self):
         """Stop HTTP periodic communication"""
         self.running = False
-
-
-def main(
-    server_url: str,
-    tracking_type: str,
-    pos_x: float,
-    pos_y: float,
-    marker_id: Optional[int],
-):
-    manager = TrackingServerManager("http://proj103.r2.enst.fr/api")
-    if tracking_type == "pos":
-        asyncio.run(manager.update_position((pos_x, pos_y)))
-    elif tracking_type == "marker":
-        asyncio.run(manager.send_marker())
