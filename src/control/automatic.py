@@ -4,12 +4,14 @@ from threading import Event
 
 
 class AutomaticController:
-    def __init__(self, motor_controller):
+    def __init__(self, motor_controller, vision_controller, tracking_server):
         self.motor_controller = motor_controller
+        self.vision_controller = vision_controller
+        self.tracking_server = tracking_server
         self.running = False
-        self.grid_case = GridDimensions.GRID_CASE
-        self.grid_size = GridDimensions.GRID_SIZE
-        self.nb_column_to_check = StrategyConfig.NB_COLUMN_TO_CHECK
+        self.grid_case = GridDimensions.GRID_CASE.value
+        self.grid_size = GridDimensions.GRID_SIZE.value
+        self.nb_column_to_check = StrategyConfig.NB_COLUMN_TO_CHECK.value
         self.case_ongoing = Event()
         self.hint_detected = Event()
 

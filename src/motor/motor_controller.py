@@ -13,6 +13,16 @@ from numpy import pi
 # web_pdb.set_trace(host="0.0.0.0", port=8080)
 
 
+class Command:
+    def __init__(self, fun, desc="no desc", *args):
+        self.fun = fun
+        self.args = args
+        self.desc = desc
+
+    def __repr__(self):
+        return self.desc
+
+
 def init_pid(
     target: int = 0, min=-MotorConfig.MAX_SPEED.value, max=MotorConfig.MAX_SPEED.value
 ):
@@ -40,33 +50,43 @@ class MotorController:
             target=self._command_processor, daemon=True
         )
         self.worker_thread.start()
-        self.stop_event = threading.Event()
+        self._queue_lock = threading.Lock()
+        self.stop_command_event = threading.Event()
         self.terminate_event = threading.Event()
 
-        if not test_mode:
+        try:
             from .libMotors import controller as c
 
             self.controller = c.Controller()
-            self.controller.set_motor_shutdown_timeout(1)
+            self.controller.set_motor_shutdown_timeout(5)
             self.controller.get_encoder_ticks()  # to init the ticks counter
+        except ImportError:
+            print("ERROR - smbus library not available, switching to test mode.")
+            self.test_mode = True
 
     def _command_processor(self):
         while True:
-            item = self.command_queue.get()
-            if item != ():
-                # log
-                print("poped out command")
-                command, args = item
-                command(*args)
-                try:
-                    self.command_queue.task_done()
-                except ValueError:
+            try:
+                item = self.command_queue.get()
+                if type(item) == Command:
+
                     # log
-                    print("Got value error")
+                    self.stop_command_event.clear()
+                    print("Poped out a command")
+                    print(f"Description of the command {item.desc}")
+
+                    ret = item.fun(*item.args)
+
+                    if self.stop_command_event.is_set():
+                        self.stop_command_event.clear()
+
+                    self.command_queue.task_done()
+            except ValueError:
+                pass
+
             if self.terminate_event.is_set():
                 print("Terminate event is set, finishing...")
-                self.clear_command_queue()
-                break
+                self.terminate_event.clear()
 
     def update_raw_speed(self, speed):
         try:
@@ -100,6 +120,9 @@ class MotorController:
             print(f"ERROR - {e}")
         return
 
+    def update_timeout(self, timeout):
+        self.controller.set_motor_shutdown_timeout(timeout)
+
     def update_odometry(self):
         self.odometry.update_position_from_ticks(*self.odometry_ticks)
         self.odometry_ticks = (0, 0)
@@ -132,38 +155,43 @@ class MotorController:
         else:
             print(f"ERROR - Provided direction ({direction}) is not supported.")
 
-    def move_controlled(self, distance: float, **kwargs):
+    def _move_controlled(self, distance: float, speed, finish_event):
         """Controlled movement with position feedback."""
-        speed = kwargs.get("speed", None)
-        no_wait = kwargs.get("no_wait", False)
-        event = kwargs.get("event", None)
 
-        def command(distance, speed, event):
-            if event:
-                event.clear()
-            if distance == 0:
-                return (0, 0)
-            elif distance < 0.0:
-                distance = -distance
-                direction = -1
-            else:
-                direction = 1
-            if speed is not None:
-                self.update_speed(speed)
-            else:
-                self.update_speed(MotorConfig.DEFAULT_MOVING_SPEED.value)
+        if finish_event:
+            finish_event.wait()
+        if distance == 0:
+            return (0, 0)
+        elif distance < 0.0:
+            distance = -distance
+            direction = -1
+        else:
+            direction = 1
+        if speed is not None:
+            self.update_speed(speed)
+        else:
+            self.update_speed(MotorConfig.DEFAULT_MOVING_SPEED.value)
 
-            if self.test_mode:
-                if event:
-                    event.set()
-                print(
-                    f"TEST - Robot should move controlled at speed {self.speed} for {direction * distance}m."
-                )
-                return
+        target_ticks = int(distance * RobotDimensions.TICKS_PER_METER.value)
+        remaining_left = remaining_right = target_ticks
 
-            target_ticks = int(distance * RobotDimensions.TICKS_PER_METER.value)
-            remaining_left = remaining_right = target_ticks
+        if self.test_mode:
+            print(
+                f"TEST - Simulating following movement with a sleeping time proportional to distance"
+            )
+            sleep_time = int(distance * 10)
+            print(f"TEST - Sleeping (**moving**) for {sleep_time}s")
+            t.sleep(sleep_time)
+            self.odometry_ticks = (-direction * target_ticks, -direction * target_ticks)
+            print(
+                f"TEST - Robot should move controlled at speed {self.speed} for {direction * distance}m."
+            )
+            self.update_odometry()
+            if finish_event:
+                finish_event.set()
+            return (0, 0)
 
+        else:
             motor_rate = 1 / RateConfig.MOTOR_FREQUENCY.value
             odometry_rate = 1 / RateConfig.ODOMETRY_FREQUENCY.value
 
@@ -182,7 +210,10 @@ class MotorController:
             next_update_odometry = t.time() + odometry_rate
             next_update_motor = t.time() + motor_rate
 
-            while not self.stop_event.is_set() and not self.terminate_event.is_set():
+            while (
+                not self.stop_command_event.is_set()
+                and not self.terminate_event.is_set()
+            ):
                 overshoot_interval = (
                     2 * 100 * motor_rate * (self.speed + abs(correction))
                 )
@@ -232,49 +263,51 @@ class MotorController:
 
             t.sleep(0.3)
 
-            if event:
-                event.set()
+            if finish_event:
+                finish_event.set()
             return (remaining_left, remaining_right)
 
-        item = (command, (distance, speed, event))
-        if no_wait:
-            print("no wait is not implemented yet...")
-        else:
-            self.command_queue.put(item)
-
-    def turn_controlled(self, angle: float, **kwargs):
+    def turn_controlled(self, angle: float, speed, finish_event):
         """Controlled rotation with position feedback."""
-        speed = kwargs.get("speed", None)
-        no_wait = kwargs.get("no_wait", False)
-        event = kwargs.get("event", None)
+        if finish_event:
+            finish_event.wait()
 
-        def command(angle, speed, event):
-            if event:
-                event.clear()
-            # if angle > pi:
-            #     angle = -(2 * pi - angle)
-            if angle == 0.0:
-                return (0, 0)
-            elif angle < 0.0:
-                angle = -angle
-                side = -1
-            else:
-                side = 1
+        # if angle > pi:
+        #     angle = -(2 * pi - angle)
 
-            if speed is not None:
-                self.update_speed(speed)
-            else:
-                self.update_speed(MotorConfig.DEFAULT_ROTATING_SPEED.value)
+        if angle == 0.0:
+            return (0, 0)
+        elif angle < 0.0:
+            angle = -angle
+            side = -1
+        else:
+            side = 1
 
-            if self.test_mode:
-                if event:
-                    event.set()
-                print(
-                    f"TEST - Robot should turn controlled {side * angle}rad at speed {self.speed}."
-                )
-                return
-            target_ticks = int(angle * RobotDimensions.TICKS_PER_RAD.value)
-            remaining_left = remaining_right = target_ticks
+        if speed is not None:
+            self.update_speed(speed)
+        else:
+            self.update_speed(MotorConfig.DEFAULT_ROTATING_SPEED.value)
+
+        target_ticks = int(angle * RobotDimensions.TICKS_PER_RAD.value)
+        remaining_left = remaining_right = target_ticks
+
+        if self.test_mode:
+            print(
+                f"TEST - Simulating following turn with a sleeping time proportional to angle"
+            )
+            sleep_time = int(angle * 2)
+            print(f"TEST - Sleeping (**turning**) for {sleep_time}s")
+            t.sleep(sleep_time)
+            self.odometry_ticks = (side * target_ticks, -side * target_ticks)
+            print(
+                f"TEST - Robot should turn controlled at speed {self.speed} for {side * angle}m."
+            )
+            self.update_odometry()
+            if finish_event:
+                finish_event.set()
+            return (0, 0)
+
+        else:
 
             motor_rate = 1 / RateConfig.MOTOR_FREQUENCY.value
             odometry_rate = 1 / RateConfig.ODOMETRY_FREQUENCY.value
@@ -296,7 +329,10 @@ class MotorController:
             correction = 0
             speed_oriented = side * self.speed
 
-            while not self.stop_event.is_set() and not self.terminate_event.is_set():
+            while (
+                not self.stop_command_event.is_set()
+                and not self.terminate_event.is_set()
+            ):
                 overshoot_interval = (
                     2 * 100 * motor_rate * (self.speed + abs(correction))
                 )
@@ -341,100 +377,114 @@ class MotorController:
 
             t.sleep(0.3)
 
-            if event:
-                event.set()
+            if finish_event:
+                finish_event.set()
             return (remaining_left, remaining_right)
 
-        item = (command, (angle, speed, event))
-        if no_wait:
-            print("no_wait not implemented yet...")
-        else:
-            self.command_queue.put(item)
+    def _delay_controlled(self, delay, finish_event):
+        """Add a delay between movements."""
+
+        if finish_event:
+            finish_event.wait()
+
+        start_time = t.time()
+        while True:
+            remaining = delay - (t.time() - start_time)
+            if remaining <= 0:
+                break
+            if self.stop_command_event.wait(
+                timeout=remaining
+            ) or self.terminate_event.wait(timeout=remaining):
+                break
+        if finish_event:
+            finish_event.set()
+
+    def move(self, distance, **kwargs):
+        speed = kwargs.get("speed", None)
+        finish_event = kwargs.get("finish_event", None)
+
+        command = Command(
+            self._move_controlled, f"Moving {distance}m", distance, speed, finish_event
+        )
+        with self._queue_lock:
+            self.command_queue.put(command)
+
+    def turn(self, angle, **kwargs):
+        speed = kwargs.get("speed", None)
+        finish_event = kwargs.get("finish_event", None)
+
+        angle_deg = int(angle * 180 / pi)
+
+        command = Command(
+            self._move_controlled, f"Turning {angle_deg}deg", angle, speed, finish_event
+        )
+
+        with self._queue_lock:
+            self.command_queue.put(command)
+
+    def delay(self, delay, **kwargs):
+        finish_event = kwargs.get("finish_event", None)
+
+        command = Command(
+            self._move_controlled,
+            f"Waiting {delay}s before next command.",
+            delay,
+            finish_event,
+        )
+
+        with self._queue_lock:
+            self.command_queue.put(command)
 
     def get_speed(self):
         """Get current motor speeds."""
         return self.controller.get_motor_speed()
 
-    def delay_controlled(self, delay, **kwargs):
-        """Add a delay between movements."""
-        no_wait = kwargs.get("no_wait", False)
-        event = kwargs.get("event", None)
-
-        def command(delay, event):
-            start_time = t.time()
-            if event:
-                event.clear()
-            while True:
-                remaining = delay - (t.time() - start_time)
-                if remaining <= 0:
-                    break
-                if self.stop_event.wait(timeout=remaining) or self.terminate_event.wait(
-                    timeout=remaining
-                ):
-                    break
-            event.set()
-
-        item = (command, (delay, event))
-        if no_wait:
-            print("not yet implemented")
-            # self.command_queue.appendleft(item)
-        else:
-            self.command_queue.put(item)
-
-    def turn_controlled_deg(self, angle, **kwargs):
+    def turn_deg(self, angle, **kwargs):
         speed = kwargs.get("speed", None)
-        no_wait = kwargs.get("no_wait", False)
-        event = kwargs.get("event", None)
+        finish_event = kwargs.get("finish_event", None)
         angle *= pi / 180
-        self.turn_controlled(angle, speed=speed, no_wait=no_wait, event=event)
+        self.turn(angle, speed=speed, finish_event=finish_event)
 
-    def face_controlled(self, orientation, **kwargs):
+    def face(self, orientation, **kwargs):
         speed = kwargs.get("speed", None)
-        no_wait = kwargs.get("no_wait", False)
-        event = kwargs.get("event", None)
+        finish_event = kwargs.get("finish_event", None)
         orientation %= 2 * pi
         angle = orientation - self.odometry.get_position()[2]
-        self.turn_controlled(angle, speed=speed, no_wait=no_wait, event=event)
+        self.turn(angle, speed=speed, finish_event=finish_event)
 
-    def face_controlled_deg(self, orientation, **kwargs):
+    def face_deg(self, orientation, **kwargs):
         speed = kwargs.get("speed", None)
-        no_wait = kwargs.get("no_wait", False)
-        event = kwargs.get("event", None)
-        self.face_controlled(
-            orientation * pi / 180, speed=speed, no_wait=no_wait, event=event
+        finish_event = kwargs.get("finish_event", None)
+        self.face(
+            orientation * pi / 180,
+            speed=speed,
+            finish_event=finish_event,
         )
 
-    def move_controlled_centimeters(self, distance, **kwargs):
+    def move_centimeters(self, distance, **kwargs):
         speed = kwargs.get("speed", None)
-        no_wait = kwargs.get("no_wait", False)
-        event = kwargs.get("event", None)
+        finish_event = kwargs.get("finish_event", None)
         distance /= 100
-        self.move_controlled(distance, speed=speed, no_wait=no_wait, event=event)
+        self.move(distance, speed=speed, finish_event=finish_event)
+
+    def get_position(self, centimeters=False):
+        self.odometry.get_position(centimeters)
+
+    def get_position_deg(self, centimeters=False):
+        self.odometry.get_position_deg(centimeters)
+
+    def reset_position(self, x=0, y=0, orientation=0):
+        self.odometry.reset_position(x, y, orientation)
+
+    def clear_command_queue(self):
+        with self._queue_lock:
+            self.command_queue = queue.Queue()
 
     def terminate_controlled(self):
         print("Interrupting all the ongoing controlled movements...")
         self.terminate_event.set()
-        self.stop_event.set()
-
-    def clear_command_queue(self, immediate=False):
-        if immediate:
-            self.stop_event.set()
-        self.command_queue.shutdown(immediate=True)
-        self.command_queue = queue.Queue()
-        self.stop_event.clear()
-
-    def _target_started(self, event):
-        def command(event):
-            event.set()
-
-        self.command_queue.put((command, (event,)))
-
-    def _target_achivied(self, event):
-
-        def command(event):
-            event.clear()
-
-        self.command_queue.put((command, (event,)))
+        self.stop_command_event.set()
+        self.clear_command_queue()
 
     def execute_instructions(self, instructions):
         """Translate a list of instructions into movement executions."""
@@ -446,26 +496,26 @@ class MotorController:
             if instruction.startswith("a"):
                 try:
                     angle = float(instruction[1:])
-                    self.turn_controlled_deg(angle)
+                    self.turn_deg(angle)
                 except ValueError:
                     print(f"Invalid angle value in instruction: {instruction}")
             elif instruction.startswith("f"):
                 try:
                     orientation = float(instruction[1:])
-                    self.face_controlled_deg(orientation)
+                    self.face_deg(orientation)
                 except ValueError:
                     print(f"Invalid orientation value in instruction: {instruction}")
             elif instruction.startswith("r"):
                 try:
                     distance = float(instruction[1:])
-                    self.move_controlled_centimeters(distance)
+                    self.move_centimeters(distance)
                 except ValueError:
                     print(f"Invalid distance value in instruction: {instruction}")
                     print("Queued moving instruction...")
             elif instruction.startswith("d"):
                 try:
                     delay = float(instruction[1:])
-                    self.delay_controlled(delay)
+                    self.delay(delay)
                     print("Queued delay instruction...")
                 except ValueError:
                     print(f"Invalid delay value in instruction: {instruction}")
@@ -476,7 +526,6 @@ class MotorController:
         """Gracefully stop the worker thread and wait for it to finish."""
         print("Shutting down worker thread...")
         self.command_queue.join()
-        print(self.command_queue)
         self.terminate_event.set()
         self.command_queue.put(())  # Ensure the queue isn't blocking
         self.worker_thread.join()  # Wait for the thread to finish

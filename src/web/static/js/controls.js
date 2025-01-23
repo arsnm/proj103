@@ -143,14 +143,11 @@ class RobotControls {
             return;
         }
 
-        this.socket.send(JSON.stringify({
-            type: 'mode_change',
-            data: {
-                : this.selectedRobotId,
+        this.websocket.send('mode_change', {
+                id : this.id,
                 command: 'target',
                 ...targetData
-            }
-        }));
+            });
     }
 
     setMode(mode) {

@@ -1,9 +1,9 @@
 class RobotState {
     constructor() {
         this.position = { x: 0, y: 0, theta: 0};
+        this.speed = {left: 0, right: 0}
         this.id = null;
         this.mode = 'manual';
-        this.target = null;
         this.visibleFlags = [];
     }
 

@@ -74,16 +74,20 @@ class OdometryController:
                     self.error_ticks[1] + error_right,
                 )
 
-    def get_position(self):
-        return (self.x, self.y, self.orientation_deg)
+    def get_position(self, centimeters=False):
+        if centimeters:
+            return (int(self.x * 100), int(self.y * 100), self.orientation)
+        else:
+            return (self.x, self.y, self.orientation)
 
-    def print_position(self):
-        print(
-            f"x: {self.x:.3f}, y: {self.y:.3f}, orientation:{self.orientation_deg:.2f}degC "
-        )
+    def get_position_deg(self, centimeters=False):
+        if centimeters:
+            return (int(self.x * 100), int(self.y * 100), self.orientation_deg)
+        else:
+            return (self.x, self.y, self.orientation_deg)
 
-    def get_position_centimeters(self):
-        return (int(self.x * 100), int(self.y * 100), self.orientation_deg)
+    def __repr__(self):
+        return f"x: {self.x:.3f}, y: {self.y:.3f}, orientation:{self.orientation_deg:.2f}deg"
 
     def update_orientation_degrees(self):
         self.orientation_deg = int(degrees(self.orientation))
@@ -146,9 +150,9 @@ def main():
     ticks_right_list = [1080, 1080, 1000, 80]
     for i in range(len(ticks_left_list)):
         odo.update_position_from_ticks(ticks_left_list[i], ticks_right_list[i], False)
-        print(odo.print_position())
+        print(odo)
     odo.handle_error()
-    print(odo.print_position())
+    print(odo)
     odo.reset_position()
 
 

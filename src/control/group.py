@@ -1,53 +1,52 @@
-from src.networking.group_server import GroupServerManager
+from src.vision.camera_controller import CameraController
 from src.motor.motor_controller import MotorController
+from src.motor.odometry_controller import OdometryController
+from src.networking.tracking_server import TrackingServerManager
+from src.vision.vision_controller import VisionController
 import threading
 import requests
 import time
-from datetime import datetime
 import json
+import asyncio
 from src.config import StrategyConfig
 
 
-class GroupServerManager:
+class GroupController:
     def __init__(
         self,
         motor_controller,
+        vision_controller,
         tracking_server,
-        server_url=StrategyConfig.URL,
-        id=StrategyConfig.ID,
-        check_interval=StrategyConfig.CHECK_INTERVAL,
-        max_retries=StrategyConfig.MAX_RETRIES,
-        retry_delay=StrategyConfig.RETRY_DELAY,
+        global_status=None,
+        server_url=StrategyConfig.URL.value,
+        id=StrategyConfig.ID.value,
+        check_interval=StrategyConfig.CHECK_INTERVAL.value,
+        max_retries=StrategyConfig.MAX_RETRIES.value,
+        retry_delay=StrategyConfig.RETRY_DELAY.value,
     ):
-        """
-        Initialize the HTTP server monitor.
-
-        Args:
-            server_url (str): The URL of the server to monitor
-            check_interval (float): Time between checks in seconds (default: 1.0)
-            max_retries (int): Maximum number of retry attempts when connection fails
-            retry_delay (float): Time to wait between retries in seconds
-        """
-        self.motor_controller = motor_controller
-        self.tracking_server = tracking_server
-        self.server_url = server_url.value
-        self.id = id.value
-        self.check_interval = check_interval.value
-        self.max_retries = max_retries.value
-        self.retry_delay = retry_delay.value
+        self.motor_controller: MotorController = motor_controller
+        self.vision_controller: VisionController = vision_controller
+        self.tracking_server: TrackingServerManager = tracking_server
+        self.global_status = global_status
+        self.server_url = server_url
+        self.id = id
+        self.check_interval = check_interval
+        self.max_retries = max_retries
+        self.retry_delay = retry_delay
         self.is_running = False
         self.monitor_thread = None
         self.consecutive_failures = 0
         self._ongoing_movement = threading.Event()
 
-    def start_monitoring(self):
-        """Start the monitoring thread."""
+    def start(self):
+        """Start the group strategy thread."""
         if not self.is_running:
             self.is_running = True
-            self.monitor_thread = threading.Thread(target=self._monitoring_loop)
-            self.monitor_thread.daemon = True
-            self.monitor_thread.start()
-            print(f"Started monitoring {self.server_url}")
+            self.thread = threading.Thread(target=self._monitoring_loop)
+            self.thread.daemon = True
+            self.thread.start()
+            self.tracking_server.start()
+            print(f"Started group strategy {self.server_url}")
         else:
             print("Monitoring is already running")
 
@@ -56,25 +55,25 @@ class GroupServerManager:
             print("Waiting for movement(s) to complete before starting another")
         self._ongoing_movement.wait()
         print(f"Executing instruction {json_data}...")
-        if json_data[0] == "a":
-            self.motor_controller.move_controlled(
+        if json_data[0] == StrategyConfig.MOVE_MESSAGE:
+            self.motor_controller.move(
                 json_data[1] if json_data[1] is not None else 50,
                 event=self._ongoing_movement,
             )
-        elif json_data[0] == "t":
-            self.motor_controller.turn_controlled_deg(
+        elif json_data[0] == StrategyConfig.TURN_MESSAGE:
+            self.motor_controller.turn_deg(
                 json_data[1] if json_data[1] is not None else 45,
                 event=self._ongoing_movement,
             )
-        elif json_data[0] == "c":
-            pose = None
-            self.tracking_server.capture_flag(json_data[1], pose)
-            self.motor_controller.turn_controlled_deg(360, event=self._ongoing_movement)
+        elif json_data[0] == StrategyConfig.CAPTURE_MESSAGE:
+            pose = self.motor_controller.get_position()
+            # self.tracking_server.send_marker(json_data[1], pose)
+            self.motor_controller.turn_deg(360, event=self._ongoing_movement)
 
     def stop_movement(self):
         self._ongoing_movement.set()
 
-    def stop_monitoring(self):
+    def stop(self):
         """Stop the monitoring thread."""
         self.is_running = False
         if self.monitor_thread:
@@ -95,7 +94,7 @@ class GroupServerManager:
         """Send a single check request to the server with retry logic."""
         retry_count = 0
 
-        headers = {"id": str(self.id)}
+        headers = {"id": str(self.id - 1)}
 
         while retry_count < self.max_retries:
             try:
@@ -121,6 +120,7 @@ class GroupServerManager:
                         json_data = response.json()
                         if isinstance(json_data, list) and len(json_data):
                             self.consecutive_failures = 0
+                            print(json_data)
                             self.execute_instructions(json_data)
                         else:
                             print(f"Unexpected JSON format: {json_data}")
@@ -167,13 +167,25 @@ class GroupServerManager:
 # Example usage
 if __name__ == "__main__":
     # Create a monitor instance with custom retry settings
-    monitor = GroupServerController(
-        "http://example.com", check_interval=1.0, max_retries=3, retry_delay=5
+    odo = OdometryController()
+    motor_controller = MotorController(odo)
+    camera_controller = CameraController()
+    vision_controller = VisionController(camera_controller)
+    tracking_server = TrackingServerManager("http://proj103.r2.enst.fr")
+    group_controller = GroupController(
+        motor_controller,
+        vision_controller,
+        tracking_server,
+        None,
+        "http://137.194.13.177:8080",
+        check_interval=1.0,
+        max_retries=3,
+        retry_delay=5,
     )
 
     try:
         # Start monitoring
-        monitor.start_monitoring()
+        group_controller.start()
 
         # Keep the main thread running
         while True:
@@ -181,5 +193,5 @@ if __name__ == "__main__":
 
     except KeyboardInterrupt:
         # Handle graceful shutdown on Ctrl+C
-        monitor.stop_monitoring()
+        group_controller.stop()
         print("\nMonitoring stopped")

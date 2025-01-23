@@ -6,6 +6,7 @@ from src.motor.odometry_controller import OdometryController
 class ManualController:
     def __init__(self, motor_controller):
         self.motor_controller = motor_controller
+        self.vision_controller =
         self.running = False
 
     def run(self):

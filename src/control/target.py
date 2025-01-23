@@ -20,20 +20,20 @@ class TargetController:
         if case[1] == start_case[1]:
             pass
         else:
-            self.motor_controller.move_controlled(y_case - start_y)
-        self.motor_controller.turn_controlled_deg(-90)  # face east
+            self.motor_controller.move(y_case - start_y)
+        self.motor_controller.turn_deg(-90)  # face east
         if case[0] == start_case[0]:
             pass
         else:
-            self.motor_controller.move_controlled(x_case - start_x)
-        self.motor_controller.turn_controlled_deg(360)
+            self.motor_controller.move(x_case - start_x)
+        self.motor_controller.turn_deg(360)
         self.running = False
 
     def target_position(self, start_x, start_y, position):
         self.running = True
         self.motor_controller.switch_mode("target")
-        self.motor_controller.face_controlled(0)
-        self.motor_controller.move_controlled(position[1] - start_y)
-        self.motor_controller.turn_controlled_deg(-90)  # face east
-        self.motor_controller.move_controlled(position[0] - start_x)
-        self.motor_controller.turn_controlled(0)
+        self.motor_controller.face(0)
+        self.motor_controller.move(position[1] - start_y)
+        self.motor_controller.turn_deg(-90)  # face east
+        self.motor_controller.move(position[0] - start_x)
+        self.motor_controller.turn(0)

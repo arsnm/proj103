@@ -13,6 +13,16 @@ from src.web.server import CombinedServer
 from src.config import *
 
 
+class RobotSystem:
+    def __init__(self):
+        self.server = CombinedServer()
+        self.camera_controller = CameraController()
+        self.vision_controller = VisionController(self.camera_controller)
+        self.OdometryController = OdometryController(
+            *PositionConfig.START_POSITION.value
+        )
+
+
 class RobotController:
     def __init__(self):
         self.camera_controller = CameraController()

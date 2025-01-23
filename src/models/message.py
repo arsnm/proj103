@@ -6,15 +6,12 @@ import time
 
 
 class MessageType(Enum):
-    # Robot -> Server messages
+    # Robot -> Server -> Interface messages
     ROBOT_STATUS = "robot_status"
-    POSITION_UPDATE = "position_update"
 
-    # Server -> Robot messages
+    # Interface -> Robot messages
     MODE_CHANGE = "mode_change"
-    TARGET_POSITION = "target_position"
-    MANUAL_CONTROL = "manual_control"
-    AUTOMATIC = "automatic"
+    MANUAL_COMMAND = "manual_command"
 
     # System messages
     ERROR = "error"

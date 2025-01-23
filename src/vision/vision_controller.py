@@ -25,12 +25,13 @@ class VisionController:
     ):
         self.camera = camera_controller
         self.position = (0, 0, 0)
-        self.last_pos_update = -1
+        self.last_pos_update = None
         self.last_frame = None
         self.running = False
         self.vision_thread = None
-        self.flag_detected = {}
-        self.flag_detected_matrix = {}
+        self.update_lock = threading.Lock()
+        self.flag_detected = []
+        self.flag_detected_matrix = []
 
     def start(self):
         self.running = True
@@ -81,7 +82,7 @@ class VisionController:
                 if self.last_frame:
                     frame = self.last_frame
                 else:
-                    break
+                    continue
             else:
                 self.last_frame = frame
             output = pose_estimation_solve_pnp(
@@ -139,21 +140,19 @@ class VisionController:
                     # self.automatic_controller.notify_hint()
                     pass
 
-                elif id in range(5, 50) and id not in self.flag_detected:
-                    self.flag_detected[id] = {
-                        "x": self.position[0],
-                        "y": self.position[1],
-                    }
+                elif id in range(5, 50):
+                    self.flag_detected.append((id, self.position[0], self.position[1]))
             for marker in list_matrix:
                 id, tvec, rvec = marker
-                if id == 0 or (id in range(5, 50) and id not in self.flag_detected):
-                    self.flag_detected_matrix[id] = (id, tvec, rvec)
-
-    def get_flags_matrix(self):
-        return self.flag_detected_matrix
+                if id == 0 or id in range(5, 50):
+                    self.flag_detected_matrix.append((id, tvec, rvec))
 
     def get_flags(self):
-        return self.flag_detected
+        ret_flag = self.flag_detected
+        ret_matrix = self.flag_detected_matrix
+        self.flag_detected = []
+        self.flag_detected_matrix = []
+        return ret_flag, ret_matrix
 
     def get_position(self):
         return self.position

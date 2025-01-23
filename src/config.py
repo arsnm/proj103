@@ -75,6 +75,7 @@ class PositionConfig(Enum):
     X_DIFF_THRESHOLD = 0.02
     Y_DIFF_THRESHOLD = 0.02
     ORIENTATION_DIFF_THRESHOLD = 5 * pi / 180
+    START_POSITION = (0, 0, 0)  # starting position
 
 
 class StrategyConfig(Enum):
@@ -84,6 +85,9 @@ class StrategyConfig(Enum):
     RESPONSE_SUCESS = 200
     MAX_RETRIES = 5
     ID = 15
-    URL = "http://example.com"
+    URL = "http://137.194.246.5:8080"
     CHECK_INTERVAL = 1.0
     RETRY_DELAY = 5
+    MOVE_MESSAGE = "A"
+    TURN_MESSAGE = "T"
+    CAPTURE_MESSAGE = "C"

@@ -58,7 +58,7 @@ class InterfaceController:
                 direction in ["forward", "backward", "left", "right"]
                 and 1 <= speed <= 100
             ):
-                motors.move_uncontrolled(direction, speed)
+                self.motors.move_uncontrolled(direction, speed)
 
         elif cmd_type == "target":
             print(command)
