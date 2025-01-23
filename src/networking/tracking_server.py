@@ -4,8 +4,6 @@ import time
 import threading
 from src.motor.motor_controller import MotorController
 from src.vision.vision_controller import VisionController
-from models.message import Message, MessageType
-from models.race import TeamStatus, MarkerStatus, RaceStatus
 from src.models.race import RaceStatus
 from src.utils.grid_navigation import match_coord_to_case
 
