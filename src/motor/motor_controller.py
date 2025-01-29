@@ -48,10 +48,10 @@ class MotorController:
         self.worker_thread = threading.Thread(
             target=self._command_processor, daemon=True
         )
-        self.worker_thread.start()
         self._queue_lock = threading.Lock()
         self.stop_command_event = threading.Event()
         self.terminate_event = threading.Event()
+        self.running = False
 
         # try:
         #     from .libMotors import controller as c
@@ -65,9 +65,15 @@ class MotorController:
 
         self.test_mode = test_mode
 
+    def start(self):
+        if not self.running:
+            self.worker_thread.start()
+
     def _command_processor(self):
         while True:
             try:
+                # log
+                print("Motor thread thread working...")
                 item = self.command_queue.get()
                 if type(item) == Command:
 
@@ -85,7 +91,8 @@ class MotorController:
 
                     self.command_queue.task_done()
             except ValueError:
-                pass
+                # log
+                print("Got ValueError in queue, continuing...")
 
             if self.terminate_event.is_set():
                 print("Terminate event is set, finishing...")
@@ -554,6 +561,7 @@ class MotorController:
         self.terminate_event.set()
         self.command_queue.put(())  # Ensure the queue isn't blocking
         self.worker_thread.join()  # Wait for the thread to finish
+        self.running = False
         print("Worker thread shut down successfully.")
 
 
