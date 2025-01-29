@@ -40,7 +40,7 @@ class VisionController:
         self.thread = threading.Thread(target=self._process_stream)
         self.thread.start()
 
-    def _process_stream(self):
+    def _process_stream(self, ffmpeg=False):
         width = int(self.camera.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(self.camera.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         fps = int(self.camera.cap.get(cv2.CAP_PROP_FPS))
@@ -75,7 +75,8 @@ class VisionController:
             os.path.join(self.hls_dir, "video.m3u8"),  # Output playlist file
         ]
 
-        process = subprocess.Popen(ffmpeg_cmd, stdin=subprocess.PIPE)
+        if ffmpeg:
+            process = subprocess.Popen(ffmpeg_cmd, stdin=subprocess.PIPE)
 
         while self.running:
             ret, frame = self.camera.read()
@@ -95,11 +96,13 @@ class VisionController:
 
             self.flag_detection(output["markers"], output["matrix"])
 
-            process.stdin.write(output["frame"].tobytes())
+            if ffmpeg:
+                process.stdin.write(output["frame"].tobytes())
 
         # Cleanup
-        process.stdin.close()
-        process.wait()
+        if ffmpeg:
+            process.stdin.close()
+            process.wait()
 
     def stop(self):
         self.running = False

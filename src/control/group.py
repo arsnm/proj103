@@ -41,7 +41,6 @@ class GroupController:
         """Start the group strategy thread."""
         if not self.running:
             self.running = True
-            self.motor_controller.start()
             self.motor_controller.clear_command_queue()
             self.thread = threading.Thread(target=self._monitoring_loop)
             self.thread.daemon = True
@@ -215,6 +214,8 @@ if __name__ == "__main__":
         max_retries=3,
         retry_delay=5,
     )
+    motor_controller.start()
+    vision_controller.start()
 
     try:
         # Start monitoring
