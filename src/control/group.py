@@ -41,6 +41,7 @@ class GroupController:
         """Start the group strategy thread."""
         if not self.running:
             self.running = True
+            self.motor_controller.start()
             self.motor_controller.clear_command_queue()
             self.thread = threading.Thread(target=self._monitoring_loop)
             self.thread.daemon = True
