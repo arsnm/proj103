@@ -58,8 +58,11 @@ class GroupController:
                 finish_event=self._finished_movement,
             )
         elif json_data[0] == StrategyConfig.TURN_MESSAGE:
+            # log
+            print("I should start turning")
+            deg = json_data[1] if json_data[1] is not None else 45
             self.motor_controller.turn_deg(
-                json_data[1] if json_data[1] is not None else 45,
+                deg,
                 finish_event=self._finished_movement,
             )
         elif json_data[0] == StrategyConfig.CAPTURE_MESSAGE:
