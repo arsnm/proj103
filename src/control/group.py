@@ -199,7 +199,7 @@ class GroupController:
 if __name__ == "__main__":
     # Create a monitor instance with custom retry settings
     odo = OdometryController()
-    motor_controller = MotorController(odo, True)
+    motor_controller = MotorController(odo)
     camera_controller = CameraController()
     vision_controller = VisionController(camera_controller)
     tracking_server = TrackingServerManager(

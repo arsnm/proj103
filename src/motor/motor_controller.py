@@ -3,6 +3,7 @@ from src.config import PIDConfig, MotorConfig, RobotDimensions, RateConfig
 from .odometry_controller import OdometryController
 import time as t
 import threading, queue, argparse
+from typing import Optional
 
 from numpy import pi
 
@@ -33,7 +34,7 @@ def init_pid(
 
 class MotorController:
     def __init__(
-        self, odometry_controller: OdometryController, test_mode: bool = False
+        self, odometry_controller: OdometryController, test_mode: Optional[bool] = None
     ):
         self.test_mode = test_mode
         self.odometry = odometry_controller
@@ -53,19 +54,21 @@ class MotorController:
         self.terminate_event = threading.Event()
         self.running = False
 
-        # try:
-        #     from .libMotors import controller as c
-        #
-        #     self.controller = c.Controller()
-        #     self.controller.set_motor_shutdown_timeout(1)
-        #     self.controller.get_encoder_ticks()  # to init the ticks counter
-        # except ImportError:
-        #     print("ERROR - smbus library not available, switching to test mode.")
-        #     self.test_mode = True
+        if test_mode is not None:
+            self.test_mode = test_mode
+        else:
+            try:
+                from .libMotors import controller as c
 
-        # test
-        self.controller = None
-        self.test_mode = test_mode
+                self.controller = c.Controller()
+                self.controller.set_motor_shutdown_timeout(1)
+                self.controller.get_encoder_ticks()  # to init the ticks counter
+            except ImportError:
+                print("ERROR - smbus library not available, switching to test mode.")
+                self.controller = None
+                self.test_mode = True
+
+        # log
         if self.test_mode:
             print("Motor controller is in TEST_MODE")
 
