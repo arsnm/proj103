@@ -53,15 +53,17 @@ class MotorController:
         self.stop_command_event = threading.Event()
         self.terminate_event = threading.Event()
 
-        try:
-            from .libMotors import controller as c
+        # try:
+        #     from .libMotors import controller as c
+        #
+        #     self.controller = c.Controller()
+        #     self.controller.set_motor_shutdown_timeout(1)
+        #     self.controller.get_encoder_ticks()  # to init the ticks counter
+        # except ImportError:
+        #     print("ERROR - smbus library not available, switching to test mode.")
+        #     self.test_mode = True
 
-            self.controller = c.Controller()
-            self.controller.set_motor_shutdown_timeout(1)
-            self.controller.get_encoder_ticks()  # to init the ticks counter
-        except ImportError:
-            print("ERROR - smbus library not available, switching to test mode.")
-            self.test_mode = True
+        self.test_mode = test_mode
 
     def _command_processor(self):
         while True:
