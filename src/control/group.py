@@ -52,12 +52,12 @@ class GroupController:
 
     def execute_instructions(self, json_data):
         print(f"Executing instruction {json_data}...")
-        if json_data[0] == StrategyConfig.MOVE_MESSAGE:
+        if json_data[0] == StrategyConfig.MOVE_MESSAGE.value:
             self.motor_controller.move_centimeters(
                 json_data[1] if json_data[1] is not None else 50,
                 finish_event=self._finished_movement,
             )
-        elif json_data[0] == StrategyConfig.TURN_MESSAGE:
+        elif json_data[0] == StrategyConfig.TURN_MESSAGE.value:
             # log
             print("I should start turning")
             deg = json_data[1] if json_data[1] is not None else 45
@@ -65,7 +65,7 @@ class GroupController:
                 deg,
                 finish_event=self._finished_movement,
             )
-        elif json_data[0] == StrategyConfig.CAPTURE_MESSAGE:
+        elif json_data[0] == StrategyConfig.CAPTURE_MESSAGE.value:
             pose = self.motor_controller.get_position()
             self.tracking_server.send_marker(json_data[1], pose)
             self.motor_controller.turn_deg(360, finish_event=self._finished_movement)
