@@ -1,31 +1,35 @@
 import curses
 from src.motor.motor_controller import MotorController
-from src.motor.odometry_controller import OdometryController
 
 
 class ManualController:
     def __init__(self, motor_controller):
         self.motor_controller = motor_controller
-        self.vision_controller =
         self.running = False
 
     def run(self):
         if not self.running:
             self.running = True
             self.motor_controller.clear_queue()
+        self.motor_controller.update_timeout(10)
 
     def execute(self, direction, speed=None):
         if not self.running:
-            print("ERROR - Cannot execute manual control if controller not running.")
+            print(
+                "ERROR - Cannot execute manual control if manual controller is not running."
+            )
             return
         self.motor_controller.move_uncontrolled(direction, speed)
 
     def stop(self):
         if self.running:
+            self.motor_controller.update_timeout(1)
             self.running = False
 
 
 def main(stdscr):
+    from src.motor.odometry_controller import OdometryController
+
     # Clear screen
     stdscr.clear()
 
@@ -80,4 +84,3 @@ def main(stdscr):
 
 if __name__ == "__main__":
     curses.wrapper(main)
-

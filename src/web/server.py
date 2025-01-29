@@ -1,13 +1,12 @@
+import pathlib
 import asyncio
+import threading
 import websockets
+from aiohttp import web
+import os
 import json
-from typing import Dict, Set
 from dataclasses import dataclass
 from enum import Enum
-import pathlib
-from aiohttp import web
-from websockets.legacy.server import WebSocketServerProtocol, serve
-import sys
 
 
 class ClientType(Enum):
@@ -15,43 +14,27 @@ class ClientType(Enum):
     INTERFACE = "interface"
 
 
-@dataclass
 class Client:
-    websocket: WebSocketServerProtocol
-    client_type: ClientType
+    def __init__(self, websocket, client_type):
+        self.websocket = websocket
+        self.client_type = client_type
 
 
 class CombinedServer:
-    def __init__(
-        self, host: str = "0.0.0.0", ws_port: int = 8765, http_port: int = 8000
-    ):
-        self.host = host
-        self.ws_port = ws_port
-        self.http_port = http_port
-        self.clients: Dict[str, Client] = {}
+    def __init__(self, video_dir, vue_app_dir):
+        self.http_port = 8080
+        self.ws_port = 8765
+        self.host = "0.0.0.0"
+        self.video_dir = video_dir
+        self.vue_app_dir = vue_app_dir
+        self.http_server = None
+        self.ws_server = None
+        self.ws_clients = {}
         self.robot_id = None
-        self.interfaces: Set[str] = set()
+        self.interfaces = set()
+        self.stop_event = asyncio.Event()
 
-        # Web interface directory
-        self.web_dir = pathlib.Path(__file__).parent
-
-        # Create aiohttp app
-        self.app = web.Application()
-        self.setup_routes()
-
-    def setup_routes(self):
-        """Setup HTTP routes"""
-        self.app.router.add_get("/", self.serve_index)
-        # Serve static files
-        self.app.router.add_static(
-            "/static/", path=self.web_dir / "static", name="static"
-        )
-
-    async def serve_index(self, request):
-        """Serve index.html"""
-        return web.FileResponse(self.web_dir / "index.html")
-
-    async def register_client(self, websocket: WebSocketServerProtocol, path: str):
+    async def register_client(self, websocket, path: str):
         """Register a new WebSocket client connection"""
         try:
             message = await websocket.recv()
@@ -64,7 +47,7 @@ class CombinedServer:
             client_type = ClientType(data["client_type"])
             client_id = str(id(websocket))
 
-            self.clients[client_id] = Client(websocket, client_type)
+            self.ws_clients[client_id] = Client(websocket, client_type)
             print(f"New {client_type.value} connected. ID: {client_id}")
 
             if client_type == ClientType.ROBOT:
@@ -82,23 +65,23 @@ class CombinedServer:
 
     async def unregister_client(self, client_id: str):
         """Unregister a client connection"""
-        if client_id not in self.clients:
+        if client_id not in self.ws_clients:
             return
 
-        client = self.clients[client_id]
+        client = self.ws_clients[client_id]
         if client.client_type == ClientType.ROBOT:
             self.robot_id = None
         else:
             self.interfaces.remove(client_id)
 
-        del self.clients[client_id]
+        del self.ws_clients[client_id]
         print(f"{client.client_type.value} disconnected. ID: {client_id}")
 
     async def forward_to_robot(self, message: str):
         """Forward message to robot"""
-        if self.robot_id and self.robot_id in self.clients:
+        if self.robot_id and self.robot_id in self.ws_clients:
             try:
-                await self.clients[self.robot_id].websocket.send(message)
+                await self.ws_clients[self.robot_id].websocket.send(message)
             except websockets.exceptions.ConnectionClosed:
                 await self.unregister_client(self.robot_id)
 
@@ -107,7 +90,7 @@ class CombinedServer:
         disconnected = set()
         for interface_id in self.interfaces:
             try:
-                await self.clients[interface_id].websocket.send(message)
+                await self.ws_clients[interface_id].websocket.send(message)
             except websockets.exceptions.ConnectionClosed:
                 disconnected.add(interface_id)
 
@@ -120,7 +103,7 @@ class CombinedServer:
             async for message in websocket:
                 try:
                     data = json.loads(message)
-                    client = self.clients[client_id]
+                    client = self.ws_clients[client_id]
 
                     if client.client_type == ClientType.ROBOT:
                         await self.forward_to_interfaces(message)
@@ -133,45 +116,124 @@ class CombinedServer:
         except websockets.exceptions.ConnectionClosed:
             await self.unregister_client(client_id)
 
-    async def start(self):
-        """Start both WebSocket and HTTP servers"""
-        # Update WebSocket server initialization
-        websocket_server = await serve(self.register_client, self.host, self.ws_port)
-        print(f"WebSocket server running on ws://{self.host}:{self.ws_port}")
+    async def start_ws_server(self):
+        # Start the WebSocket server on a given port
+        server = await websockets.serve(self.register_client, self.host, self.ws_port)
+        print(f"WebSocket server started on ws://{self.host}:{self.ws_port}")
+        await server.wait_closed()
 
-        # Start HTTP server
-        runner = web.AppRunner(self.app)
-        await runner.setup()
-        site = web.TCPSite(runner, self.host, self.http_port)
-        await site.start()
-        print(f"HTTP server running on http://{self.host}:{self.http_port}")
+    async def serve_video(self, request):
+        # Serve the HLS video stream (m3u8 file)
+        video_path = os.path.join(self.video_dir, "video.m3u8")
+        if os.path.exists(video_path):
+            return web.FileResponse(video_path)
+        return web.Response(status=404, text="Video stream not found.")
 
-        # Keep servers running
+    async def serve_vue_app(self, request):
+        # Serve the Vue.js application index.html
         try:
-            await asyncio.Future()  # run forever
-        finally:
-            websocket_server.close()
-            await websocket_server.wait_closed()
-            await runner.cleanup()
+            requested_path = request.match_info.get("path", "")
+            full_path = os.path.normpath(os.path.join(self.vue_app_dir, requested_path))
+
+            # Prevent directory traversal
+            if not full_path.startswith(self.vue_app_dir):
+                return web.Response(status=403, text="Forbidden")
+
+            # If file exists, serve it directly
+            if os.path.exists(full_path) and os.path.isfile(full_path):
+                return web.FileResponse(full_path)
+
+            # If no specific file, serve index.html
+            index_path = os.path.join(self.vue_app_dir, "index.html")
+            if os.path.exists(index_path):
+                return web.FileResponse(index_path)
+
+            return web.Response(status=404, text="Vue app not found.")
+
+        except Exception as e:
+            return web.Response(status=500, text=f"Server error: {str(e)}")
+        # index_path = os.path.join(self.vue_app_dir, "index.html")
+        # if os.path.exists(index_path):
+        #     return web.FileResponse(index_path)
+        # return web.Response(status=404, text="Vue app not found.")
+
+    async def start_http_server(self):
+        # Start the HTTP server
+        app = web.Application()
+        app.router.add_get("/video", self.serve_video)  # Serving m3u8 video stream
+
+        # Add catch-all route for Vue app routing and static files
+        app.router.add_get("/", self.serve_vue_app)
+        app.router.add_get("/{path:.*}", self.serve_vue_app)
+
+        runner = web.AppRunner(app)
+        await runner.setup()
+        site = web.TCPSite(runner, host=self.host, port=self.http_port)
+        await site.start()
+        print(f"HTTP server started on http://{self.host}:{self.http_port}")
+
+    def start(self):
+        """
+        Start WebSocket and HTTP servers in separate asyncio event loops
+        """
+        self.main_loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.main_loop)
+
+        async def run_servers():
+            ws_server_task = asyncio.create_task(self.start_ws_server())
+            http_server_task = asyncio.create_task(self.start_http_server())
+
+            try:
+                await asyncio.gather(ws_server_task, http_server_task)
+            except asyncio.CancelledError:
+                pass
+            finally:
+                self.stop_event.set()
+
+        def run_async_loop():
+            self.main_loop.run_until_complete(run_servers())
+
+        # Start servers in a separate thread
+        self.server_thread = threading.Thread(target=run_async_loop, daemon=True)
+        self.server_thread.start()
+
+    def stop(self):
+        """
+        Gracefully stop the servers
+        """
+        if hasattr(self, "main_loop") and not self.stop_event.is_set():
+            # Cancel all running tasks
+            for task in asyncio.all_tasks(self.main_loop):
+                task.cancel()
+
+            # Stop the event loop
+            self.main_loop.call_soon_threadsafe(self.main_loop.stop)
+
+            # Wait for the server thread to finish
+            if hasattr(self, "server_thread"):
+                self.server_thread.join(timeout=5)
+
+            print("Servers stopped.")
 
 
 def main(ws_port=8765, http_port=8000):
-    server = CombinedServer("0.0.0.0", ws_port, http_port)
+    import time
 
+    server = CombinedServer(
+        "./src/web/hls",
+        "./src/web/web_interface",
+    )
     try:
-        asyncio.run(server.start())
+        server.start()
     except KeyboardInterrupt:
         print("\nServer shutdown requested")
     except Exception as e:
         print(f"Unexpected error: {e}")
     finally:
+        while True:
+            time.sleep(1)  # make sure the main thread does not stop
         print("Server stopped")
 
 
 if __name__ == "__main__":
-    if len(sys.argv) == 3:
-        ws_port = int(sys.argv[1])
-        http_port = int(sys.argv[2])
-        main(ws_port, http_port)
-    else:
-        main()
+    main()

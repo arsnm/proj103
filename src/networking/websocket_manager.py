@@ -77,18 +77,6 @@ class WebSocketManager:
         message = Message(type=MessageType.ROBOT_STATUS, data=status)
         self.message_queue.put_nowait(message.to_json())
 
-    def send_position_update(self, position):
-        """Send position update"""
-        message = Message(
-            type=MessageType.POSITION_UPDATE,
-            data={
-                "x": int(position[0] * 100),
-                "y": int(position[1] * 100),
-                "theta": int(position[2] * 180 / np.pi),
-            },
-        )
-        self.message_queue.put_nowait(message.to_json())
-
     def register_handler(self, msg_type: MessageType, handler: Callable):
         self.message_handler.register(msg_type, handler)
 

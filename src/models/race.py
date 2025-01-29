@@ -1,10 +1,20 @@
 from typing import Optional, Dict, List
-from dataclasses import dataclass
-import time
+import json
 
 
 # GET status request example
-example = '[{"status":2, "elapsed":0, "positions":[{"team":1,"x":100,"y":20,"num_markers":1}],"markers":[{"team": 1, "id": 6, "col": 1, "row": "B", "time": 2000, "valid": true}]}'
+example = """
+{
+ "status":2,
+ "elapsed":0,
+ "positions":[
+   {"team":1,"x":100,"y":20,"num_markers":1}
+ ],
+ "markers":[
+        {"team": 1, "id": 6, "col": 1, "row": "B", "time": 2000, "valid": true, "scan": false}
+ ]
+}
+"""
 
 
 class TeamStatus:
@@ -22,7 +32,7 @@ class TeamStatus:
 class MarkerStatus:
     """Represents a complete marker status"""
 
-    def __init__(self, marker_status, sent=True):
+    def __init__(self, marker_status):
         self.team: int = marker_status["team"]  # team who found the marker
         self.id: int = marker_status["id"]
         self.col: int = marker_status[
@@ -33,7 +43,6 @@ class MarkerStatus:
         ]  # y-coordinate of the case where the marker was found (A, B, ...)
         self.time: int = marker_status["time"]  # in ms
         self.valid: bool = marker_status["valid"]
-        self.sent: bool = sent
         self.scan: bool = marker_status["scan"]
 
 
@@ -97,3 +106,7 @@ class RaceStatus:
                 "positions": self.get_positions(),
                 "markers": self.get_markers(),
             }
+
+
+if __name__ == "__main__":
+    race = RaceStatus(json.loads(example))

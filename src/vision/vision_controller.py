@@ -3,7 +3,8 @@ import numpy as np
 import threading
 import subprocess
 import time
-from src.config import ArucoConfig, PositionConfig
+import os
+from src.config import ArucoConfig, PositionConfig, CameraConfig
 from src.utils.grid_navigation import (
     relative_to_absolute_coord,
     id_to_orientation,
@@ -11,10 +12,6 @@ from src.utils.grid_navigation import (
 )
 from src.vision.camera_controller import CameraController
 from src.vision.aruco_detector import pose_estimation_solve_pnp
-from src.motor.motor_controller import MotorController
-from src.motor.odometry_controller import OdometryController
-from src.control.automatic import AutomaticController
-from src.control.target import TargetController
 
 
 class VisionController:
@@ -22,7 +19,9 @@ class VisionController:
     def __init__(
         self,
         camera_controller: CameraController,
+        hsl_dir=CameraConfig.HSL_DIR.value,
     ):
+        self.hls_dir = hsl_dir
         self.camera = camera_controller
         self.position = (0, 0, 0)
         self.last_pos_update = None
@@ -30,8 +29,11 @@ class VisionController:
         self.running = False
         self.vision_thread = None
         self.update_lock = threading.Lock()
-        self.flag_detected = []
-        self.flag_detected_matrix = []
+        self.flag_detected = {}
+        self.flag_detected_matrix = {}
+
+        if not os.path.exists(self.hls_dir):
+            os.makedirs(self.hls_dir)
 
     def start(self):
         self.running = True
@@ -65,15 +67,15 @@ class VisionController:
             "-f",
             "hls",
             "-hls_time",
-            "1",
+            "10",  # Segment length (in seconds)
             "-hls_list_size",
-            "3",
+            "6",  # Number of segments in the playlist
             "-hls_flags",
-            "delete_segments",
-            "./src/web/static/stream.m3u8",  # Output HLS files to the static directory
+            "delete_segments",  # Delete old segments
+            os.path.join(self.hls_dir, "video.m3u8"),  # Output playlist file
         ]
 
-        # process = subprocess.Popen(ffmpeg_cmd, stdin=subprocess.PIPE)
+        process = subprocess.Popen(ffmpeg_cmd, stdin=subprocess.PIPE)
 
         while self.running:
             ret, frame = self.camera.read()
@@ -93,12 +95,11 @@ class VisionController:
 
             self.flag_detection(output["markers"], output["matrix"])
 
-            # process.stdin.write(output["frame"].tobytes())
+            process.stdin.write(output["frame"].tobytes())
 
-        # # Cleanup
-        # process.stdin.close()
-        # process.wait()
-        # self.camera.release_camera()
+        # Cleanup
+        process.stdin.close()
+        process.wait()
 
     def stop(self):
         self.running = False
@@ -137,22 +138,29 @@ class VisionController:
                 and abs(angle) < ArucoConfig.FLAG_ANGLE_THRESHOLD.value
             ):
                 if id == 0:
-                    # self.automatic_controller.notify_hint()
+                    # TODO: deal with automatic mode, hint_event, etc...
                     pass
-
-                elif id in range(5, 50):
-                    self.flag_detected.append((id, self.position[0], self.position[1]))
+                if (id == 0 or id in range(5, 50)) and id not in self.flag_detected:
+                    self.flag_detected[id] = (id, self.position[0], self.position[1])
             for marker in list_matrix:
                 id, tvec, rvec = marker
-                if id == 0 or id in range(5, 50):
-                    self.flag_detected_matrix.append((id, tvec, rvec))
+                if (
+                    id == 0 or id in range(5, 50)
+                ) and id not in self.flag_detected_matrix:
+                    self.flag_detected_matrix[id] = (id, tvec, rvec)
 
     def get_flags(self):
-        ret_flag = self.flag_detected
-        ret_matrix = self.flag_detected_matrix
-        self.flag_detected = []
-        self.flag_detected_matrix = []
+        ret_flag = self.flag_detected.values()
+        ret_matrix = self.flag_detected_matrix.values()
+        self.flag_detected = {}
+        self.flag_detected_matrix = {}
         return ret_flag, ret_matrix
 
     def get_position(self):
         return self.position
+
+
+if __name__ == "__main__":
+    camera = CameraController()
+    vision = VisionController(camera)
+    vision.start()

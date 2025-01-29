@@ -1,5 +1,4 @@
 from src.utils.pid_controller import PIDController
-from src.utils.thread_safe_dequeue import ThreadSafeDeque
 from src.config import PIDConfig, MotorConfig, RobotDimensions, RateConfig
 from .odometry_controller import OdometryController
 import time as t
@@ -58,7 +57,7 @@ class MotorController:
             from .libMotors import controller as c
 
             self.controller = c.Controller()
-            self.controller.set_motor_shutdown_timeout(5)
+            self.controller.set_motor_shutdown_timeout(1)
             self.controller.get_encoder_ticks()  # to init the ticks counter
         except ImportError:
             print("ERROR - smbus library not available, switching to test mode.")
@@ -70,14 +69,16 @@ class MotorController:
                 item = self.command_queue.get()
                 if type(item) == Command:
 
-                    # log
                     self.stop_command_event.clear()
+                    # log
                     print("Poped out a command")
                     print(f"Description of the command {item.desc}")
 
                     ret = item.fun(*item.args)
 
                     if self.stop_command_event.is_set():
+                        # log
+                        print("Last command has been interrupted.")
                         self.stop_command_event.clear()
 
                     self.command_queue.task_done()
@@ -87,6 +88,7 @@ class MotorController:
             if self.terminate_event.is_set():
                 print("Terminate event is set, finishing...")
                 self.terminate_event.clear()
+                break
 
     def update_raw_speed(self, speed):
         try:
@@ -158,8 +160,8 @@ class MotorController:
     def _move_controlled(self, distance: float, speed, finish_event):
         """Controlled movement with position feedback."""
 
-        if finish_event:
-            finish_event.wait()
+        if finish_event is not None:
+            finish_event.clear()
         if distance == 0:
             return (0, 0)
         elif distance < 0.0:
@@ -179,15 +181,20 @@ class MotorController:
             print(
                 f"TEST - Simulating following movement with a sleeping time proportional to distance"
             )
-            sleep_time = int(distance * 10)
+            sleep_time = int(distance / 0.11)
             print(f"TEST - Sleeping (**moving**) for {sleep_time}s")
-            t.sleep(sleep_time)
+            while True:
+                if self.stop_command_event.wait(
+                    timeout=sleep_time
+                ) or self.terminate_event.wait(timeout=sleep_time):
+                    break
+                break
             self.odometry_ticks = (-direction * target_ticks, -direction * target_ticks)
             print(
                 f"TEST - Robot should move controlled at speed {self.speed} for {direction * distance}m."
             )
             self.update_odometry()
-            if finish_event:
+            if finish_event is not None:
                 finish_event.set()
             return (0, 0)
 
@@ -263,14 +270,15 @@ class MotorController:
 
             t.sleep(0.3)
 
-            if finish_event:
+            if finish_event is not None:
                 finish_event.set()
             return (remaining_left, remaining_right)
 
-    def turn_controlled(self, angle: float, speed, finish_event):
+    def _turn_controlled(self, angle: float, speed, finish_event):
         """Controlled rotation with position feedback."""
-        if finish_event:
-            finish_event.wait()
+
+        if finish_event is not None:
+            finish_event.clear()
 
         # if angle > pi:
         #     angle = -(2 * pi - angle)
@@ -295,15 +303,20 @@ class MotorController:
             print(
                 f"TEST - Simulating following turn with a sleeping time proportional to angle"
             )
-            sleep_time = int(angle * 2)
+            sleep_time = int(angle / 0.63)
             print(f"TEST - Sleeping (**turning**) for {sleep_time}s")
-            t.sleep(sleep_time)
-            self.odometry_ticks = (side * target_ticks, -side * target_ticks)
+            while True:
+                if self.stop_command_event.wait(
+                    timeout=sleep_time
+                ) or self.terminate_event.wait(timeout=sleep_time):
+                    break
+                break
+            self.odometry_ticks = (-side * target_ticks, side * target_ticks)
             print(
-                f"TEST - Robot should turn controlled at speed {self.speed} for {side * angle}m."
+                f"TEST - Robot should turn controlled at speed {self.speed} for {side * angle}rad."
             )
             self.update_odometry()
-            if finish_event:
+            if finish_event is not None:
                 finish_event.set()
             return (0, 0)
 
@@ -377,15 +390,15 @@ class MotorController:
 
             t.sleep(0.3)
 
-            if finish_event:
+            if finish_event is not None:
                 finish_event.set()
             return (remaining_left, remaining_right)
 
     def _delay_controlled(self, delay, finish_event):
         """Add a delay between movements."""
 
-        if finish_event:
-            finish_event.wait()
+        if finish_event is not None:
+            finish_event.clear()
 
         start_time = t.time()
         while True:
@@ -396,7 +409,7 @@ class MotorController:
                 timeout=remaining
             ) or self.terminate_event.wait(timeout=remaining):
                 break
-        if finish_event:
+        if finish_event is not None:
             finish_event.set()
 
     def move(self, distance, **kwargs):
@@ -416,7 +429,7 @@ class MotorController:
         angle_deg = int(angle * 180 / pi)
 
         command = Command(
-            self._move_controlled, f"Turning {angle_deg}deg", angle, speed, finish_event
+            self._turn_controlled, f"Turning {angle_deg}deg", angle, speed, finish_event
         )
 
         with self._queue_lock:
@@ -426,7 +439,7 @@ class MotorController:
         finish_event = kwargs.get("finish_event", None)
 
         command = Command(
-            self._move_controlled,
+            self._delay_controlled,
             f"Waiting {delay}s before next command.",
             delay,
             finish_event,
@@ -435,9 +448,12 @@ class MotorController:
         with self._queue_lock:
             self.command_queue.put(command)
 
-    def get_speed(self):
+    def get_speeds_motors(self):
         """Get current motor speeds."""
         return self.controller.get_motor_speed()
+
+    def get_speed(self):
+        return self.speed
 
     def turn_deg(self, angle, **kwargs):
         speed = kwargs.get("speed", None)
@@ -475,6 +491,9 @@ class MotorController:
 
     def reset_position(self, x=0, y=0, orientation=0):
         self.odometry.reset_position(x, y, orientation)
+
+    def stop_command(self):
+        self.stop_command_event.set()
 
     def clear_command_queue(self):
         with self._queue_lock:
@@ -525,7 +544,9 @@ class MotorController:
     def shutdown(self):
         """Gracefully stop the worker thread and wait for it to finish."""
         print("Shutting down worker thread...")
+        print("Waiting for all command to finish...")
         self.command_queue.join()
+        print("All commands have been treated.")
         self.terminate_event.set()
         self.command_queue.put(())  # Ensure the queue isn't blocking
         self.worker_thread.join()  # Wait for the thread to finish
@@ -541,17 +562,55 @@ if __name__ == "__main__":
         "-i",
         "--instructions",
         type=str,
-        default=MotorConfig.DEFAULT_INSTR,
+        default=MotorConfig.DEFAULT_INSTR.value,
         help="Instruction string to execute",
     )
     args = parser.parse_args()
 
     odo = OdometryController(0, 0, 0)
     motor_controller = MotorController(odo)
-    print("Starting executing instructions...")
+    print("+++++Starting executing instructions, without event managment...+++++")
     instr = args.instructions
     # # log
     # print("Executing the following instructions: ", instr)
     motor_controller.execute_instructions(instr)
-    # motor_controller.shutdown()
-    print(odo.x * 100, odo.y * 100, odo.orientation * 180 / pi)
+    motor_controller.shutdown()
+    print(
+        f"----Odometry result : {odo.x * 100}cm, {odo.y * 100}cm, {odo.orientation * 180 / pi}deg"
+    )
+
+    print(
+        "+++++Starting executing a long instruction, stopping it (after 5sec) mid execution, then continuing other instructions...+++++"
+    )
+    instr = "r400, a45, a-45, r10"
+    odo = OdometryController(0, 0, 0)
+    motor_controller = MotorController(odo)
+    motor_controller.execute_instructions(instr)
+    t.sleep(4)
+    motor_controller.stop_command()
+    motor_controller.shutdown()
+    print(
+        f"----Odometry result : {odo.x * 100}cm, {odo.y * 100}cm, {odo.orientation * 180 / pi}deg (not handling stopping event in test mode)"
+    )
+
+    print(
+        "+++++Will now test executing instructions with event managment (simulating group control)+++++"
+    )
+
+    finish_event = threading.Event()
+    odo = OdometryController(0, 0, 0)
+    motor_controller = MotorController(odo)
+    instructions = ["a", "t", "a", "t"]
+    for instr in instructions:
+        if instr == "a":
+            motor_controller.move(1, finish_event=finish_event)
+        elif instr == "t":
+            motor_controller.turn_deg(90, finish_event=finish_event)
+        print("Waiting for last instruction to finish... (checking every 0.2sec)")
+        while not finish_event.is_set():
+            t.sleep(0.2)
+        finish_event.clear()
+        print("Done waiting, starting next")
+    print(
+        f"----Odometry result : {odo.x * 100}cm, {odo.y * 100}cm, {odo.orientation * 180 / pi}deg"
+    )

@@ -2,10 +2,12 @@ import json
 import requests
 import time
 import threading
+from typing import Optional
 from src.motor.motor_controller import MotorController
 from src.vision.vision_controller import VisionController
 from src.models.race import RaceStatus
 from src.utils.grid_navigation import match_coord_to_case
+from src.config import NetworkConfig
 
 
 class TrackingServerManager:
@@ -14,20 +16,19 @@ class TrackingServerManager:
     def __init__(
         self,
         url: str,
-        race_controller=None,
         motor_controller=None,
         vision_controller=None,
+        race_controller=None,
         test_mode=False,
     ):
         self.url = url
-        self.race_controller = race_controller
-        self.motor_controller = motor_controller
-        self.vision_controller = vision_controller
+        self.motor_controller: Optional[MotorController] = motor_controller
+        self.vision_controller: Optional[VisionController] = vision_controller
         self.http_session = None
         self.running = False
         self.connected = False
-        self.team_id: int = 5  # TrackingServerConfig.TEAM_ID
-        self.race_status = None
+        self.team_id: int = NetworkConfig.TRACKING_SERVER_TEAM_ID.value
+        self.race_status: Optional[RaceStatus] = None
         self.test_mode = test_mode
 
     def start(self):
@@ -72,44 +73,48 @@ class TrackingServerManager:
         except Exception as e:
             print(f"ERROR - Tracking server error: {e}")
 
-    # def send_marker(self, marker_id, marker_position):
-    #     if self.test_mode:
-    #         print("TEST MODE - Sent marker to tracking server")
-    #         return
-    #     id = self.team_id
-    #     x, y = marker_position
-    #     row, col = match_coord_to_case(x, y)
-    #     url = f"{self.url}/marker"
-    #     params_list = [{"id": id, "col": col, "row": row}]
-    #     for params in params_list:
-    #         try:
-    #             async with self.http_session.post(url, params=params) as response:
-    #                 message = TrackingServerConfig.API_RESPONSE.get(
-    #                     response.status, "Response from server not recognized"
-    #                 )
-    #                 print(f"Marker sent: {message}")
-    #         except Exception as e:
-    #             print(f"ERROR - Tracking server error : {e}")
-    #
-    # async def update_race_status(self):
-    #     if self.test_mode:
-    #         print("TEST MODE - Updating race status from server")
-    #         return
-    #     url = f"{self.url}/status"
-    #     try:
-    #         async with self.http_session.get(url) as response:
-    #             message = TrackingServerConfig.API_RESPONSE.get(
-    #                 response.status, "Response from server not recognized"
-    #             )
-    #             if response.status in [200, 503]:
-    #                 data = await response.text()
-    #                 data = json.loads(data)
-    #                 self.race_status = RaceStatus(data)
-    #             else:
-    #                 print("ERROR - Could not receive race status from tracking server")
-    #     except:
-    #         return
-    #
+    def send_marker(self, marker_id, marker_position, scan=False):
+        if self.test_mode:
+            print("TEST MODE - Sent marker to tracking server")
+            return
+        x, y, _ = marker_position
+        case = match_coord_to_case(x, y)
+        if case is None:
+            print("ERROR - Coord provided for marker are not withing the grid range")
+            return
+        row, col = case
+        url = f"{self.url}/marker"
+        try:
+            if scan:
+                response = requests.post(
+                    f"{url}?id={marker_id}&col{col}&row={row}&scan=false"
+                )
+            else:
+                response = requests.post(
+                    f"{url}?id={marker_id}&col{col}&row={row}&scan=true"
+                )
+            print(f"Position updated (supposedly)")
+        except Exception as e:
+            print(f"ERROR - Tracking server error: {e}")
+
+    def update_race_status(self):
+        if self.test_mode:
+            print("TEST MODE - Updating race status from server")
+            return
+
+        # URL to send the GET request to
+        url = f"{self.url}/status"
+
+        # Sending the GET request
+        response = requests.get(url)
+
+        # Checking if the request was successful
+        if response.status_code == 200:
+            data = response.json()
+            self.race_status = RaceStatus(data)
+
+        elif response.status_code == 503:
+            print("Getting status should have worked, but race isnt'started.")
 
     def stop(self):
         """Stop HTTP periodic communication"""

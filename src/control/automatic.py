@@ -15,6 +15,11 @@ class AutomaticController:
         self.case_ongoing = Event()
         self.hint_detected = Event()
 
+    def run(self):
+        # TODO: Implement automatic mode
+        print("TODO : Should start automatic mode.")
+        self.running = True
+
     def case_check(self):
         """Advance to next case and check both of its top corners. (assuming starting in the center of case)"""
 
@@ -49,3 +54,9 @@ class AutomaticController:
         if self.running:
             self.hint_detected.wait()
             self.hint_detected.set()
+
+    def stop(self):
+        # TODO: Implement automatic mode
+        if self.running:
+            print("TODO : Should stop automatic mode.")
+            self.running = False

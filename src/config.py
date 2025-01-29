@@ -8,6 +8,10 @@ class NetworkConfig(Enum):
     HTTP_PORT = 8000
     TRACKING_SERVER_URL = "http://proj103.r2.enst.fr/api"
     TRACKING_SERVER_PORT = 80
+    VUE_APP_DIR = "./src/web/web_interface/dist/"
+    VIDEO_HLS_DIR = "./src/web/hls"
+    TRACKING_SERVER_TEAM_ID = 5
+    UPDATE_ROBOT_STATUS_RATE = 0.2  # in s
 
 
 class GridDimensions(Enum):
@@ -31,7 +35,7 @@ class MotorConfig(Enum):
     MIN_SPEED = 2
     MIN_RAW_SPEED = 5
     MAX_RAW_SPEED = 125
-    DEFAULT_INSTR = "r20, a45, a-90, a45, r-20, a360"
+    DEFAULT_INSTR = "a45, r20, a45, a-90, a-45, d3, f0"
 
 
 class RateConfig(Enum):
@@ -66,6 +70,7 @@ class ArucoConfig(Enum):
 
 
 class CameraConfig(Enum):
+    HSL_DIR = "./src/web/hls"
     WIDTH = 1280
     HEIGHT = 800
     FPS = 30
@@ -84,10 +89,11 @@ class StrategyConfig(Enum):
     RESPONSE_MOVEMENT = 200
     RESPONSE_SUCESS = 200
     MAX_RETRIES = 5
-    ID = 15
+    ID = 4
     URL = "http://137.194.246.5:8080"
     CHECK_INTERVAL = 1.0
     RETRY_DELAY = 5
     MOVE_MESSAGE = "A"
     TURN_MESSAGE = "T"
     CAPTURE_MESSAGE = "C"
+    REST_MESSAGE = "R"

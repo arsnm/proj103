@@ -1,0 +1,73 @@
+.robot-interface {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+}
+
+header {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+h1 {
+  font-size: 2rem;
+  font-weight: bold;
+}
+
+h2 {
+  font-size: 1.5rem;
+}
+
+.main-content {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 1200px;
+}
+
+.panel {
+  border: 1px solid #ccc;
+  padding: 20px;
+  margin: 10px;
+}
+
+.robot-status {
+  flex: 1;
+}
+
+.control-video-container {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  flex: 1;
+}
+
+.control-panel {
+  flex: 1;
+  margin-right: 10px;
+}
+
+.video-feed-container {
+  flex: 1;
+  margin-left: 10px;
+}
+
+button {
+  padding: 10px;
+  margin: 5px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: #0056b3;
+}
+
+.center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}

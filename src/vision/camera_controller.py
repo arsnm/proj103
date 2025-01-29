@@ -5,12 +5,15 @@ import argparse
 import platform
 import numpy as np
 from datetime import datetime
-from src.config import CameraConfig
+from src.config import CameraConfig, CalibrationConfig
 
 
 class CameraController:
     def __init__(
-        self, camera_index=0, save_directory="pictures", calibration_file=None
+        self,
+        camera_index=0,
+        calibration_file=CalibrationConfig.CAL_FILE.value,
+        save_directory="pictures",
     ):
         """
         Initialize the camera controller.
@@ -76,11 +79,21 @@ if __name__ == "__main__":
     parser.add_argument(
         "-i", "--index", type=int, default=0, help="Camera index to use"
     )
+    parser.add_argument(
+        "-c", "--calibration", type=str, default="none", help="Camera calibration file"
+    )
     args = parser.parse_args()
 
     # Create the camera controller with provided arguments
+    if args.calibration == "none":
+        calibration_file = None
+    else:
+        calibration_file = args.calibration
+
     camera_controller = CameraController(
-        camera_index=args.index, save_directory=args.dir
+        calibration_file=calibration_file,
+        camera_index=args.index,
+        save_directory=args.dir,
     )
     print("Press 'c' to capture an image or 'q' to quit.")
     print(f"Images will be saved in {args.dir}")

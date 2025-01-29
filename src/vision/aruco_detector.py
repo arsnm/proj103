@@ -128,6 +128,9 @@ def pose_estimation_solve_pnp(
      "matrix" : [(id, tvec, rvec)]
     """
 
+    if type(aruco_dict_type) == str:
+        aruco_dict_type = ARUCO_DICT[aruco_dict_type]
+
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     arucoDict = cv2.aruco.getPredefinedDictionary(aruco_dict_type)
     parameters = cv2.aruco.DetectorParameters()
