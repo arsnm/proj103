@@ -63,7 +63,11 @@ class MotorController:
         #     print("ERROR - smbus library not available, switching to test mode.")
         #     self.test_mode = True
 
+        # test
+        self.controller = None
         self.test_mode = test_mode
+        if self.test_mode:
+            print("Motor controller is in TEST_MODE")
 
     def start(self):
         if not self.running:
