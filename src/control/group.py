@@ -53,6 +53,8 @@ class GroupController:
     def execute_instructions(self, json_data):
         print(f"Executing instruction {json_data}...")
         if json_data[0] == StrategyConfig.MOVE_MESSAGE.value:
+            # log
+            print(f"I received an advancing instructions...")
             self.motor_controller.move_centimeters(
                 json_data[1] if json_data[1] is not None else 50,
                 finish_event=self._finished_movement,
@@ -61,7 +63,6 @@ class GroupController:
             # log
             print("I should start turning")
             deg = json_data[1] if json_data[1] is not None else 45
-            self._finished_movement.clear()
             self.motor_controller.turn_deg(
                 deg,
                 finish_event=self._finished_movement,
@@ -110,8 +111,6 @@ class GroupController:
                 if isinstance(json_data, list) and len(json_data):
                     self.consecutive_failures = 0
                     self.execute_instructions(json_data)
-                    self._finished_movement.wait()
-                    self._finished_movement.clear()
                 else:
                     print(f"Unexpected JSON format: {json_data}")
                     return

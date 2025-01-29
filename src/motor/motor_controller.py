@@ -422,6 +422,7 @@ class MotorController:
             self._move_controlled, f"Moving {distance}m", distance, speed, finish_event
         )
         with self._queue_lock:
+            print("I put a moving command to queue.")
             self.command_queue.put(command)
 
     def turn(self, angle, **kwargs):
@@ -435,6 +436,7 @@ class MotorController:
         )
 
         with self._queue_lock:
+            print("Adding turning command to queue...")
             self.command_queue.put(command)
 
     def delay(self, delay, **kwargs):
