@@ -45,7 +45,7 @@ class GroupController:
             self.thread = threading.Thread(target=self._monitoring_loop)
             self.thread.daemon = True
             self.thread.start()
-            self.tracking_server.start()
+            # self.tracking_server.start()
             print(f"Started group strategy {self.server_url}")
         else:
             print("Monitoring is already running")
@@ -77,7 +77,7 @@ class GroupController:
     def stop(self):
         """Stop the monitoring thread."""
         self.running = False
-        self.tracking_server.stop()
+        # self.tracking_server.stop()
         self.motor_controller.clear_command_queue()
         if self.monitor_thread:
             self.monitor_thread.join()
@@ -97,9 +97,12 @@ class GroupController:
     def _send_check(self):
         response = requests.post(f"{self.server_url}/api/check?id={self.id}")
 
+        print(f"response from server : {response.status_code}")
+
         if response.status_code == StrategyConfig.RESPONSE_MOVEMENT.value:
             try:
                 json_data = response.json()
+                print(f"json_data, received = {json_data}")
                 if isinstance(json_data, list) and len(json_data):
                     self.consecutive_failures = 0
                     self.execute_instructions(json_data)
