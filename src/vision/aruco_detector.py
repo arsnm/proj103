@@ -251,8 +251,8 @@ def pose_estimation_solve_pnp(
                 #     (0, 255, 0),
                 #     2,
                 # )
-                poses["markers"].append((ids[i], x, y, angle_to_z_axis))
-                poses["matrix"].append((ids[i], tvec, rvec))
+                poses["markers"].append((ids[i][0], x, y, angle_to_z_axis))
+                poses["matrix"].append((ids[i][0], tvec, rvec))
 
     poses["frame"] = frame
     return poses
