@@ -147,6 +147,8 @@ class VisionController:
                     self.flag_detected[id] = (id, self.position[0], self.position[1])
             for marker in list_matrix:
                 id, tvec, rvec = marker
+                # log
+                print(f"id : {id}, type : {type(id)}")
                 if (
                     id == 0 or id in range(5, 50)
                 ) and id not in self.flag_detected_matrix:
