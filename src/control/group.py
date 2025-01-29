@@ -93,6 +93,10 @@ class GroupController:
         """Main monitoring loop that sends periodic checks."""
         while self.running:
             try:
+                flags = self.vision_controller.get_flags()
+                for flag in flags:
+                    # log
+                    print(f"I should send a flag now : {flag}")
                 self._send_check()
                 time.sleep(self.check_interval)
             except Exception as e:
