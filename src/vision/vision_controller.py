@@ -153,8 +153,8 @@ class VisionController:
                     self.flag_detected_matrix[id] = (id, tvec, rvec)
 
     def get_flags(self):
-        ret_flag = self.flag_detected.values()
-        ret_matrix = self.flag_detected_matrix.values()
+        ret_flag = list(self.flag_detected.values())
+        ret_matrix = list(self.flag_detected_matrix.values())
         self.flag_detected = {}
         self.flag_detected_matrix = {}
         return ret_flag, ret_matrix
