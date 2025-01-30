@@ -157,8 +157,8 @@ class VisionController:
         ret_matrix = []
         for element in self.flag_detected_matrix.values():
             id = int(element[0])
-            tvec = element[1].to_array()
-            rvec = element[2].to_array()
+            tvec = element[1].tolist()
+            rvec = element[2].tolist()
             ret_matrix.append([id, tvec, rvec])
         self.flag_detected = {}
         self.flag_detected_matrix = {}
