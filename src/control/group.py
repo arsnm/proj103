@@ -93,10 +93,10 @@ class GroupController:
         """Main monitoring loop that sends periodic checks."""
         while self.running:
             try:
-                flags = self.vision_controller.get_flags()
+                flags, flags_mat = self.vision_controller.get_flags()
                 # log
-                print(f"I should send a flag now : {flags}")
-                self._send_flags(flags)
+                print(f"I should send a flag now : {flags_mat}")
+                self._send_flags(flags_mat)
                 self._send_check()
                 time.sleep(self.check_interval)
             except Exception as e:
@@ -104,8 +104,9 @@ class GroupController:
                 time.sleep(self.check_interval)
 
     def _send_flags(self, flags):
-        list = json.dumps(flags)
-        response = requests.post(f"{self.server_url}/api/drap?id={self.id}&list={list}")
+        response = requests.post(
+            f"{self.server_url}/api/drap?id={self.id}&list={flags}"
+        )
         print(f"Server returned response {response.status_code} when sending flags")
 
     def _send_check(self):
