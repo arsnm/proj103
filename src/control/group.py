@@ -97,7 +97,7 @@ class GroupController:
                 # log
                 print(f"I should send a flag now : {flags_mat}")
                 self._send_flags(flags_mat)
-                self._send_check()
+                # self._send_check()
                 time.sleep(self.check_interval)
             except Exception as e:
                 print(f"Unexpected error in monitoring loop: {str(e)}")
