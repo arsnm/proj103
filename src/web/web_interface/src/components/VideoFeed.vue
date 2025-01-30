@@ -51,13 +51,14 @@ export default {
 
 <style scoped>
 .video-feed {
-  width: 100%;
-  max-width: 100%;
+  width: 600px;
+  max-width: 50%;
   margin: 0 auto;
 }
 
 #videoPlayer {
   width: 100%;
   height: auto;
+  align-items: center;
 }
 </style>

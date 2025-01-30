@@ -90,7 +90,6 @@ export default {
     const websocketUrl = "ws://localhost:8765";
 
     if (!videoStreamUrl) {
-      console.log(import.meta.env.VITE_WEBSOCKET_URL);
       console.error("VITE_VIDEOSTREAM_URL is not defined in .env file");
       return;
     };

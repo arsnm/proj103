@@ -94,14 +94,19 @@ class GroupController:
         while self.running:
             try:
                 flags = self.vision_controller.get_flags()
-                for flag in flags:
-                    # log
-                    print(f"I should send a flag now : {flag}")
+                # log
+                print(f"I should send a flag now : {flags}")
+                self._send_flags(flags)
                 self._send_check()
                 time.sleep(self.check_interval)
             except Exception as e:
                 print(f"Unexpected error in monitoring loop: {str(e)}")
                 time.sleep(self.check_interval)
+
+    def _send_flags(self, flags):
+        list = json.dumps(flags)
+        response = requests.post(f"{self.server_url}/api/drap?id={self.id}&list={list}")
+        print(f"Server returned response {response.status_code} when sending flags")
 
     def _send_check(self):
         response = requests.post(f"{self.server_url}/api/check?id={self.id}")

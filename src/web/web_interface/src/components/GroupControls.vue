@@ -1,8 +1,7 @@
 <template>
-  <div class="p-4 border rounded shadow">
+  <div class="start-button">
     <button
       @click="startGroupControl"
-      class="bg-green-500 text-white py-2 px-4 rounded hover:bg-green-600"
     >
       Start Group Control
     </button>
@@ -26,8 +25,14 @@ export default {
 </script>
 
 <style scoped>
+
+.start-button {
+  flex-grow: 1;
+  padding-top: 10px;
+  align-items: center;
+}
 button {
-  font-size: 1rem;
+  font-size: 2rem;
   font-weight: bold;
 }
 </style>
